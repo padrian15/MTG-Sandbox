@@ -69,12 +69,14 @@
   #clear-btn:hover { background: #3a3a4a; }
 
   #layout {
-    position: fixed; top: 28px; left: 0; right: 0; bottom: 212px;
+    position: fixed; top: 28px; left: 0; right: 0; bottom: 0;
     overflow: hidden;
     transition: top 0.2s ease;
   }
+  /* In multiplayer: player gets bottom half, opponent gets top half */
   body.mp-active #layout {
-    top: calc(50vh);
+    top: 50vh;
+    bottom: 0;
   }
 
   .zone {
@@ -113,16 +115,34 @@
 
   .zone.battlefield {
     background: radial-gradient(ellipse at center, #0d1a0d 0%, #141820 100%);
-    position: absolute; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden;
-    border: none; border-radius: 0; padding: 0; box-shadow: none;
+    position: absolute; top: 0; left: 28px; right: 28px; bottom: 0; overflow: hidden;
+    border: none; border-radius: 0; padding: 8px; box-shadow: none;
   }
   .zone.hand {
-    position: fixed; bottom: 72px; left: 0; right: 0; height: 160px;
-    background: #0a0a10; border-top: 2px solid #1e1e2a; border-radius: 0;
-    overflow-x: auto; overflow-y: hidden;
-    display: flex; flex-wrap: nowrap; align-items: center;
-    padding: 0 12px; gap: 4px; box-sizing: border-box;
-    z-index: 100; box-shadow: 0 -4px 20px rgba(0,0,0,0.6);
+    position: fixed; bottom: -75px; left: 50%; transform: translateX(-50%);
+    height: 130px; max-width: 90vw;
+    background: transparent; border: none; border-radius: 0;
+    overflow: visible;
+    display: flex; flex-wrap: nowrap; align-items: flex-end;
+    padding: 0 8px; gap: -8px; box-sizing: border-box;
+    z-index: 200;
+    transition: bottom 0.25s ease;
+  }
+  .zone.hand:hover {
+    bottom: -10px;
+  }
+  .zone.hand .zone-label { display: none; }
+  .zone.hand .card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    margin: 0 -8px;
+    flex-shrink: 0;
+    transform: scale(1.25);
+    transform-origin: bottom center;
+  }
+  .zone.hand .card:hover {
+    transform: translateY(-30px) scale(1.08) !important;
+    z-index: 300;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.8);
   }
   .zone.hand .zone-label {
     flex-shrink: 0; writing-mode: vertical-rl; transform: rotate(180deg);
@@ -149,8 +169,8 @@
     width: 100px; height: 140px; z-index: 20;
     border: 1px solid #2a2a3a; border-radius: 6px;
   }
-  .zone.graveyard { bottom: 0; right: 0; }
-  .zone.exile { bottom: 140px; right: 0; }
+  .zone.graveyard { bottom: 0; right: 8px; }
+  .zone.exile { bottom: 144px; right: 8px; }
   .zone.graveyard > .card:not(:last-child),
   .zone.exile > .card:not(:last-child) { display: none; }
 
@@ -222,6 +242,7 @@
   }
 
   #footer-bar {
+    display: none !important;
     position: fixed; bottom: 0; left: 0; width: 100%; height: 72px;
     background: #1a1a24;
     border-top: 1px solid #2a2a3a;
@@ -233,7 +254,7 @@
   }
 
   /* Life total — clickable number */
-  #life-total {
+  #life-total { display: none !important;
     font-size: 28px; font-weight: 700; color: #e0e0e0;
     cursor: pointer; min-width: 2.5ch; text-align: center;
     padding: 2px 8px; border-radius: 8px;
@@ -734,39 +755,41 @@
   /* ── OPPONENT PANEL (2-player top bar) ── */
   #opponent-panel {
     position: fixed; top: 28px; left: 0; right: 0;
-    height: calc(50vh - 28px); background: #0d0d16;
-    border-bottom: 2px solid #1e1e30;
-    display: none; z-index: 500;
+    height: calc(50vh - 28px);
+    background: radial-gradient(ellipse at center, #0a140a 0%, #0f0f13 100%);
+    border-bottom: 2px solid rgba(201,168,76,0.15);
+    display: none; z-index: 50;
     flex-direction: row; gap: 0;
+    pointer-events: none;
   }
   #opponent-panel.show { display: flex; }
   .opp-zone {
-    flex: 1; padding: 6px 10px; border-right: 1px solid #1e1e2a;
-    display: flex; flex-direction: column; gap: 3px; overflow: hidden;
-    font-size: 11px; min-height: 0;
+    position: absolute; top: 8px; left: 8px;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+    font-size: 12px; background: transparent; border: none;
+    padding: 0; z-index: 10; pointer-events: none;
   }
   .opp-zone:last-child { border-right: none; }
   .opp-name {
-    font-weight: 700; color: #c9a84c; font-size: 12px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-weight: 700; color: #c9a84c; font-size: 13px;
+    white-space: nowrap; text-shadow: 0 1px 4px rgba(0,0,0,0.9);
   }
-  .opp-life { font-size: 20px; font-weight: 700; color: #e0e0e0; }
-  .opp-counts { color: #888; font-size: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .opp-life { font-size: 22px; font-weight: 800; color: #e0e0e0; text-shadow: 0 1px 4px rgba(0,0,0,0.9); line-height: 1; }
+  .opp-counts { color: rgba(180,180,180,0.8); font-size: 10px; display: flex; gap: 6px; flex-wrap: wrap; text-shadow: 0 1px 3px rgba(0,0,0,0.9); }
   .opp-bf {
     flex: 1; overflow: hidden;
-    background: radial-gradient(ellipse at center, #0a140a 0%, #0d0d16 100%);
-    border-right: 1px solid #1e1e2a; padding: 4px 6px;
-    display: flex; flex-wrap: wrap; align-items: flex-start;
-    align-content: flex-start; gap: 2px; min-height: 0;
+    background: transparent;
+    border: none; position: relative;
+    min-height: 0;
   }
   .opp-card-mini {
-    width: 26px; height: 36px; border-radius: 3px;
+    width: 75px; height: 104px; border-radius: 6px;
     background: #1e3a1e; border: 1px solid #2a4a2a;
     display: inline-block; flex-shrink: 0;
-    overflow: hidden;
+    overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
   }
   .opp-card-mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .opp-card-mini.tapped { transform: rotate(15deg); opacity: 0.75; }
+  .opp-card-mini.tapped { transform: rotate(90deg); opacity: 0.85; }
   .opp-hand-cards {
     display: flex; gap: 1px; flex-wrap: wrap; align-items: center;
   }
@@ -883,7 +906,406 @@
   }
   #private-log-toggle-btn.show { display: inline-block; }
   #private-log-toggle-btn:hover { background: #3a3a4a; }
+
+  /* Opponent graveyard/exile overlays */
+  .opp-gy-zone, .opp-ex-zone {
+    position: absolute; right: 8px; width: 100px; height: 140px;
+    background: rgba(10,10,16,0.88); border: 1px solid #2a2a3a;
+    border-radius: 6px; overflow: hidden; cursor: pointer;
+    z-index: 60; pointer-events: all;
+  }
+  .opp-gy-zone { bottom: 8px; }
+  .opp-ex-zone { bottom: 156px; }
+  .opp-zone-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: #888; padding: 4px 6px; text-align: center;
+  }
+  .opp-gy-zone .opp-card-mini, .opp-ex-zone .opp-card-mini {
+    position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+    width: 70px; height: 98px;
+  }
+  .opp-gy-zone:hover, .opp-ex-zone:hover { border-color: #c9a84c; }
+
+
+  /* Hand overflow card */
+  .hand-overflow-card {
+    width: 75px; height: 104px;
+    background: rgba(10,10,16,0.9);
+    border: 2px solid rgba(201,168,76,0.6);
+    border-radius: 6px;
+    display: inline-flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0;
+    margin: 0 -8px;
+    transform: scale(1.25);
+    transform-origin: bottom center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+    transition: transform 0.15s ease;
+  }
+  .hand-overflow-card:hover {
+    transform: scale(1.35) translateY(-20px);
+    border-color: #c9a84c;
+  }
+  .hand-overflow-count {
+    font-size: 22px; font-weight: 800;
+    color: #c9a84c;
+  }
+  .hand-overflow-label {
+    font-size: 10px; color: #888;
+    margin-top: 4px;
+  }
+
+  /* Hand viewer modal */
+  #hand-viewer-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85); z-index: 9990;
+    align-items: center; justify-content: center;
+  }
+  #hand-viewer-box {
+    background: #1a1a24; border: 1px solid #2a2a3a;
+    border-radius: 12px; padding: 16px;
+    max-width: 90vw; max-height: 80vh;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  #hand-viewer-header {
+    display: flex; align-items: center; justify-content: space-between;
+    font-weight: 700; font-size: 14px; color: #c9a84c;
+  }
+  #hand-viewer-close {
+    background: #2a2a3a; border: 1px solid #3a3a4a;
+    color: #e0e0e0; border-radius: 6px; padding: 4px 12px;
+    cursor: pointer; font-family: inherit; font-size: 12px;
+  }
+  #hand-viewer-grid {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    overflow-y: auto; padding: 4px;
+  }
+  .hv-card {
+    width: 90px; cursor: context-menu; border-radius: 6px;
+    overflow: hidden; flex-shrink: 0;
+    border: 1px solid #2a2a3a;
+    transition: transform 0.1s;
+  }
+  .hv-card:hover { transform: scale(1.05); }
+  .hv-card img { width: 100%; height: auto; display: block; }
+
+
+  /* Counter badges on opponent cards */
+  .opp-card-mini {
+    position: relative;
+  }
+  .opp-counter-badge {
+    position: absolute; bottom: 2px; left: 2px;
+    background: rgba(20,20,40,0.9); color: #fff;
+    border: 1px solid #3a3a4a; border-radius: 4px;
+    font-size: 8px; font-weight: 700; padding: 1px 3px;
+    line-height: 1.2; pointer-events: none;
+    display: flex; flex-wrap: wrap; gap: 2px;
+  }
+  .opp-counter-pip {
+    background: #922; border-radius: 3px; padding: 0px 3px;
+    font-size: 8px; font-weight: 700; color: #fff; white-space: nowrap;
+  }
+  .opp-counter-pip.loyalty { background: #225; }
+  .opp-counter-pip.charge { background: #252; }
+  .opp-counter-pip.p1p1 { background: #265; }
+
+
+  /* Opponent commander zone */
+  .opp-commander-zone {
+    position: absolute; bottom: 8px; left: 8px;
+    width: 80px; height: 112px;
+    border: 2px solid rgba(201,168,76,0.7);
+    border-radius: 6px; overflow: hidden;
+    background: rgba(10,10,16,0.88);
+    box-shadow: 0 0 12px rgba(201,168,76,0.2);
+    z-index: 60; pointer-events: all; cursor: pointer;
+  }
+  .opp-commander-zone img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .opp-commander-label {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,0.75); color: #c9a84c;
+    font-size: 8px; text-align: center; padding: 2px;
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .opp-commander-empty {
+    display: flex; align-items: center; justify-content: center;
+    height: 100%; color: #555; font-size: 10px; text-align: center; padding: 4px;
+  }
+
+
+
+
+  /* Opponent floating hand - peeks from top of opponent zone */
+  #opp-hand-float {
+    position: fixed; top: calc(28px - 70px);
+    left: 50%; transform: translateX(-50%);
+    display: none; flex-wrap: nowrap; align-items: flex-start;
+    z-index: 201; pointer-events: none;
+    transition: top 0.3s ease;
+  }
+  body.mp-active #opp-hand-float { display: flex; }
+  body.mp-active #opp-hand-float:hover {
+    top: calc(28px + 4px);
+  }
+  .opp-hand-float-card {
+    width: 60px; height: 84px;
+    border-radius: 6px; overflow: hidden;
+    flex-shrink: 0; margin: 0 -6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+    border: 1px solid #3a3a4a;
+    transform-origin: top center;
+    transition: transform 0.15s ease;
+  }
+  .opp-hand-float-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .opp-hand-float-card:hover {
+    transform: translateY(15px) scale(1.1);
+    z-index: 210;
+  }
+
+
+  /* Reveal request popup */
+  #reveal-request-popup {
+    display: none; position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    background: #1a1a24; border: 2px solid rgba(201,168,76,0.6);
+    border-radius: 12px; padding: 20px 24px;
+    z-index: 9995; min-width: 260px; text-align: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.9);
+  }
+  #reveal-request-popup.open { display: block; }
+  .reveal-popup-title { font-size: 13px; color: #c9a84c; font-weight: 700; margin-bottom: 8px; }
+  .reveal-popup-msg { font-size: 12px; color: #aaa; margin-bottom: 16px; }
+  .reveal-popup-btns { display: flex; gap: 10px; justify-content: center; }
+  .reveal-accept-btn { background: #265226; color: #9dca9d; border: 1px solid #3a6a3a; border-radius: 6px; padding: 8px 18px; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 700; }
+  .reveal-accept-btn:hover { background: #2d6b2d; }
+  .reveal-decline-btn { background: #2a2a3a; color: #888; border: 1px solid #3a3a4a; border-radius: 6px; padding: 8px 18px; cursor: pointer; font-family: inherit; font-size: 12px; }
+  .reveal-decline-btn:hover { background: #3a3a4a; }
+
+  /* Revealed card overlay */
+  #revealed-card-overlay {
+    display: none; position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    background: rgba(0,0,0,0.9); border-radius: 12px;
+    padding: 16px; z-index: 9996; text-align: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.9);
+  }
+  #revealed-card-overlay.open { display: block; }
+  #revealed-card-overlay img { width: 200px; height: auto; border-radius: 8px; display: block; margin: 0 auto 10px; }
+  #revealed-card-label { color: #c9a84c; font-size: 12px; margin-bottom: 12px; }
+  #revealed-card-close { background: #2a2a3a; border: 1px solid #3a3a4a; color: #e0e0e0; border-radius: 6px; padding: 6px 16px; cursor: pointer; font-family: inherit; font-size: 12px; }
+
+
+  /* Opponent library zone */
+  .opp-library-zone {
+    position: absolute; bottom: 130px; left: 8px;
+    width: 80px; height: 112px;
+    background: linear-gradient(135deg, #1a472a, #0f2a1a);
+    border: 1px solid rgba(157,202,157,0.4);
+    border-radius: 6px; overflow: hidden; cursor: context-menu;
+    z-index: 60; pointer-events: all;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+  .opp-library-zone:hover { border-color: rgba(157,202,157,0.8); }
+  .opp-library-count {
+    font-size: 28px; font-weight: 800; color: #9dca9d;
+    line-height: 1;
+  }
+  .opp-library-label {
+    font-size: 9px; color: #5a9a5a; text-transform: uppercase;
+    letter-spacing: 0.08em; margin-top: 4px;
+  }
+
+  /* Library reveal multi-card viewer */
+  #lib-reveal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85); z-index: 9992;
+    align-items: center; justify-content: center;
+  }
+  #lib-reveal-overlay.open { display: flex; }
+  #lib-reveal-box {
+    background: #1a1a24; border: 1px solid #2a2a3a;
+    border-radius: 12px; padding: 16px;
+    max-width: 90vw; max-height: 80vh;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  #lib-reveal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    font-weight: 700; font-size: 14px; color: #c9a84c;
+  }
+  #lib-reveal-close {
+    background: #2a2a3a; border: 1px solid #3a3a4a;
+    color: #e0e0e0; border-radius: 6px; padding: 4px 12px;
+    cursor: pointer; font-family: inherit; font-size: 12px;
+  }
+  #lib-reveal-grid {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    overflow-y: auto; padding: 4px;
+  }
+  .lib-reveal-card {
+    width: 90px; border-radius: 6px; overflow: hidden;
+    border: 1px solid #2a2a3a; flex-shrink: 0;
+  }
+  .lib-reveal-card img { width: 100%; height: auto; display: block; }
+
+  /* Library reveal request popup */
+  #lib-reveal-request-popup {
+    display: none; position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    background: #1a1a24; border: 2px solid rgba(157,202,157,0.5);
+    border-radius: 12px; padding: 20px 24px;
+    z-index: 9995; min-width: 280px; text-align: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.9);
+  }
+  #lib-reveal-request-popup.open { display: block; }
+
+
+  /* ── Player HUD (top-right of player zone) ── */
+  #player-hud {
+    position: fixed; top: calc(50vh + 12px); right: 12px;
+    display: none; flex-direction: column; align-items: flex-end; gap: 4px;
+    z-index: 300; user-select: none;
+  }
+  body.mp-active #player-hud { display: flex; }
+  #player-hud-name {
+    font-size: 12px; font-weight: 700; color: #c9a84c;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+  }
+  #player-hud-life-row {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .phud-arrow {
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 4px; color: rgba(200,200,200,0.7);
+    width: 22px; height: 22px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-family: inherit;
+    transition: all 0.1s;
+  }
+  .phud-arrow:hover { background: rgba(201,168,76,0.3); color: #c9a84c; border-color: rgba(201,168,76,0.5); }
+  .phud-arrow:active { transform: scale(0.9); }
+  #player-hud-life-val {
+    font-size: 36px; font-weight: 800; color: #fff;
+    min-width: 56px; text-align: center; line-height: 1;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.9);
+  }
+  #player-hud-life-val.low { color: #f55; }
+  #player-hud-cmd {
+    font-size: 10px; color: rgba(201,168,76,0.5);
+    cursor: pointer; text-align: right;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+    white-space: nowrap; max-width: 90px;
+  }
+  #player-hud-cmd:hover { color: #c9a84c; }
+  #player-hud-cmd.has-damage { color: #c9a84c; font-weight: 700; }
+
+  /* CMD damage panel */
+  #player-cmd-panel {
+    display: none; position: fixed; right: 12px;
+    top: calc(50vh + 120px);
+    background: rgba(15,15,20,0.95); border: 1px solid rgba(201,168,76,0.3);
+    border-radius: 8px; padding: 8px 12px; z-index: 400;
+    min-width: 150px; box-shadow: 0 4px 16px rgba(0,0,0,0.8);
+  }
+  #player-cmd-panel.open { display: block; }
+  #player-cmd-panel-title { font-size: 10px; color: #c9a84c; font-weight: 700; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.1em; }
+  .cmd-dmg-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .cmd-dmg-name { flex: 1; font-size: 11px; color: #aaa; }
+  .cmd-dmg-btn { background: #2a2a3a; border: 1px solid #3a3a4a; color: #e0e0e0; border-radius: 3px; width: 18px; height: 18px; cursor: pointer; font-size: 11px; display: flex; align-items: center; justify-content: center; font-family: inherit; }
+  .cmd-dmg-btn:hover { background: #3a3a4a; color: #c9a84c; }
+  .cmd-dmg-val { min-width: 18px; text-align: center; font-size: 12px; font-weight: 700; color: #e0e0e0; }
+
 </style>
+
+  <script>
+    const TEST_DECK = `1 Aetherflux Reservoir
+1 Anointed Procession
+1 Arcane Signet
+1 Azra Smokeshaper
+1 Blade-Blizzard Kitsune
+1 Bloodthirsty Conqueror
+1 Bojuka Bog
+1 Brotherhood Regalia
+1 Cabal Coffers
+1 Caduceus, Staff of Hermes
+1 Caves of Koilos
+1 Changeling Outcast
+1 Command Tower
+1 Commander\'s Plate
+1 Concealed Courtyard
+1 Cordyceps Excision
+1 Cover of Darkness
+1 Dark Ritual
+1 Deadly Rollick
+1 Dokuchi Silencer
+1 Donnie\'s Bo
+1 Duelist\'s Heritage
+1 Elspeth, Storm Slayer
+1 Exalted Sunborn
+1 Exquisite Blood
+1 Fetid Heath
+1 Flaming Fist
+1 Flock Impostor
+1 Generous Gift
+1 Godless Shrine
+1 Intangible Virtue
+1 Isolated Chapel
+1 Jet Medallion
+1 Kefka\'s Tower
+1 Leonardo, Big Brother
+1 Leonardo, Cutting Edge
+1 Leonardo\'s Technique
+1 Marsh Flats
+1 Maskwood Nexus
+1 Memnite
+1 Metallic Mimic
+1 Mondrak, Glory Dominus
+1 Nashi, Moon Sage\'s Scion
+1 Night\'s Whisper
+1 Noctis\'s Death Magic
+1 Okiba-Gang Shinobi
+1 Ornithopter
+1 Oroku Saki, Shredder Rising
+1 Orzhov Basilica
+1 Orzhov Signet
+1 Painful Truths
+1 Path of Ancestry
+1 Path to Exile
+1 Pearl Medallion
+1 Personify
+10 Plains
+1 Read the Bones
+1 Rogue\'s Passage
+1 Sanguine Bond
+1 Settle the Wreckage
+1 Shambling Vent
+1 Shattered Sanctum
+1 Shredder, Shadow Master
+1 Sign in Blood
+1 Silent Clearing
+1 Skullsnatcher
+1 Sol Ring
+1 Species Specialist
+1 Splinter, Hamato Yoshi
+1 Splinter, Vengeful Sensei
+1 Starscape Cleric
+10 Swamp
+1 Swords to Plowshares
+1 Tainted Remedy
+1 The Dead Marshes
+1 The Last Ronin\'s Technique
+1 Throat Slitter
+1 Toxic Deluge
+1 Vault of Champions
+1 Vito, Thorn of the Dusk Rose
+1 Whispersilk Cloak
+1 Dark Leo & Shredder`;
+    window.addEventListener('DOMContentLoaded', () => {
+      const ta = document.getElementById('deck-input');
+      if (ta && !ta.value) ta.value = TEST_DECK;
+    });
+  </script>
 </head>
 <body>
 <div id="status-bar"><span id="status-text">Ready.</span><span id="log-badge" style="display:none">● 0 actions</span></div>
@@ -954,7 +1376,7 @@
 
 <div id="footer-bar">
   <div id="footer-left">
-    <span id="life-total" title="Click for life, commander damage &amp; poison">40</span>
+    <!-- life-total removed - now in player HUD -->
   </div>
   <div id="footer-cl">
     <button id="draw">Draw</button>
@@ -1095,7 +1517,7 @@
   </div>
 </div>
 
-<script src="//"+window.location.hostname+":3001/socket.io/socket.io.js"></script>
+<script src="/socket.io/socket.io.js"></script>
 <script>
   // ─────────────────────────────────────────────
   //  MULTIPLAYER SYSTEM
@@ -1144,6 +1566,10 @@
     socket.on('chat',         onChatMsg);
     socket.on('stateUpdate',  onStateUpdate);
     socket.on('gameLogHistory', onGameLogHistory);
+    socket.on('revealRequest', d => window._onRevealRequest && window._onRevealRequest(d));
+    socket.on('revealResponse', d => window._onRevealResponse && window._onRevealResponse(d));
+    socket.on('libraryRevealRequest', d => window._onLibRevealRequest && window._onLibRevealRequest(d));
+    socket.on('libraryRevealResponse', d => window._onLibRevealResponse && window._onLibRevealResponse(d));
     socket.on('gameStart',    onGameStart);
   }
 
@@ -1162,7 +1588,7 @@
     const name = document.getElementById('join-name').value.trim();
     const code = document.getElementById('join-code').value.trim().toUpperCase();
     if (!name) { document.getElementById('join-error').textContent = 'Enter your name.'; return; }
-    if (!code || code.length !== 6) { document.getElementById('join-error').textContent = 'Enter a valid 6-character room code.'; return; }
+    if (!code || code.length !== 4) { document.getElementById('join-error').textContent = 'Enter a valid 4-digit room code.'; return; }
     myName = name;
     document.getElementById('join-error').textContent = 'Connecting...';
     connectSocket();
@@ -1184,25 +1610,40 @@
   function onRoomCreated(data) {
     myRoom  = data.code;
     mySeat  = data.seat;
+    window.mySeat = mySeat;
     myFormat = data.format;
     isHost  = true;
     mpPlayers = data.players || [{ name: myName, seat: 0 }];
     document.getElementById('join-screen').style.display = 'none';
-    showLobby();
+    startGame(false); // skip lobby
+    setTimeout(() => {
+      // Add permanent room code badge to status bar
+      const existBadge = document.getElementById('status-room-badge');
+      if (!existBadge) {
+        const badge = document.createElement('span');
+        badge.id = 'status-room-badge';
+        badge.style.cssText = 'margin-left:8px;padding:1px 8px;background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.3);border-radius:8px;color:#c9a84c;font-family:monospace;font-weight:700;letter-spacing:0.1em;font-size:13px;';
+        badge.textContent = myRoom;
+        document.getElementById('status-bar')?.appendChild(badge);
+      }
+    }, 500);
   }
 
   function onJoinedRoom(data) {
     myRoom  = data.code;
     mySeat  = data.seat;
+    window.mySeat = mySeat;
     myFormat = data.format;
     isSpectator = !!data.spectator;
-    mpPlayers = data.players || [];
+    mpPlayers = data.players || []; window.mpPlayers = mpPlayers;
     if (data.publicStates) {
       opponentStates = {};
       Object.values(data.publicStates).forEach(s => { if (s.seat !== mySeat) opponentStates[s.seat] = s; });
     }
     document.getElementById('join-screen').style.display = 'none';
-    showLobby();
+    startGame(true); // skip lobby
+    // Re-render after state arrives
+    setTimeout(renderOpponents, 500);
   }
 
   function onJoinError(data) {
@@ -1210,9 +1651,9 @@
   }
 
   function onPlayerJoined(data) {
-    if (!mpPlayers.find(p => p.seat === data.seat)) mpPlayers.push(data);
+    if (!mpPlayers.find(p => p.seat === data.seat)) mpPlayers.push(data); window.mpPlayers = mpPlayers;
     updateLobbyUI();
-    addLog('\u2192 ' + data.name + ' joined the room (Seat ' + (data.seat+1) + ')');
+    if (typeof addLog === 'function') addLog('\u2192 ' + data.name + ' joined the room (Seat ' + (data.seat+1) + ')');
     if (!isSpectator) {
       addPrivateLog('Player joined: ' + data.name, false);
     }
@@ -1222,7 +1663,7 @@
     mpPlayers = mpPlayers.filter(p => p.seat !== data.seat);
     delete opponentStates[data.seat];
     updateLobbyUI();
-    addLog('\u2190 ' + data.name + ' left the room');
+    if (typeof addLog === 'function') addLog('\u2190 ' + data.name + ' left the room');
     renderOpponents();
   }
 
@@ -1263,6 +1704,7 @@
     if (data.seat === mySeat) return;
     opponentStates[data.seat] = data;
     renderOpponents();
+    if (window._oppHandRenderHook) window._oppHandRenderHook(data);
     if (myFormat === '4p') renderQuad();
   }
 
@@ -1327,7 +1769,16 @@
     const mpStatus = document.getElementById('mp-status');
     if (mpStatus) {
       mpStatus.classList.add('show');
-      document.getElementById('mp-room-badge').textContent = myRoom;
+      document.getElementById('mp-room-badge').textContent = '📋 ' + myRoom;
+      // Show room code toast for host
+      if (isHost) {
+        const toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1a1a24;border:2px solid #c9a84c;border-radius:12px;padding:24px 32px;z-index:9999;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.8)';
+        toast.innerHTML = '<div style="color:#888;font-size:12px;margin-bottom:8px">ROOM CODE — Share with Player 2</div><div style="color:#c9a84c;font-size:2.5em;font-weight:800;letter-spacing:0.2em;font-family:monospace">' + myRoom + '</div><div style="color:#555;font-size:11px;margin-top:8px">Click anywhere to dismiss</div>';
+        document.body.appendChild(toast);
+        toast.addEventListener('click', () => toast.remove());
+        setTimeout(() => toast.remove && toast.remove(), 15000);
+      }
       document.getElementById('mp-players-count').textContent = mpPlayers.length + ' players';
     }
 
@@ -1349,11 +1800,11 @@
     const oppPanel = document.getElementById('opponent-panel');
     oppPanel.classList.add('show');
     document.body.classList.add('mp-active');
-    // Adjust main layout top to make room
+    // Opponent panel stays at body level (fixed positioning)
+    // Split screen: player battlefield in bottom half
     const layoutEl = document.getElementById('layout');
-    if (layoutEl) layoutEl.style.top = '148px';
-    const handEl = document.getElementById('hand');
-    if (handEl) handEl.style.bottom = '72px';
+    if (layoutEl) layoutEl.style.top = '50vh';
+    // hand zone is CSS-controlled floating
     renderOpponents();
   }
 
@@ -1375,25 +1826,18 @@
       // Info section
       const info = document.createElement('div');
       info.innerHTML = '<div class="opp-name">' + escHtml(opp.name) + '</div>' +
-        '<div class="opp-life">' + (state.life !== undefined ? state.life : '\u2014') + '</div>' +
-        '<div class="opp-counts">' +
-          '<span>\ud83d\udcda ' + (state.libraryCount !== undefined ? state.libraryCount : '?') + '</span>' +
-          '<span>\ud83e\udeb6 ' + (state.graveyardCount || 0) + '</span>' +
-          '<span>\ud83c\udf0c ' + (state.exileCount || 0) + '</span>' +
-          '<span>\u270b ' + (state.handCount || 0) + '</span>' +
-        '</div>';
+        '<div class="opp-life">♥ ' + (state.life !== undefined ? state.life : '—') + '</div>';
       div.appendChild(info);
+      // Commander damage indicator (only show if > 0)
+      if (state.cmdDmgReceived && state.cmdDmgReceived > 0) {
+        const cmdEl = document.createElement('div');
+        cmdEl.style.cssText = 'font-size:10px;color:#c9a84c;text-shadow:0 1px 3px rgba(0,0,0,0.9);';
+        cmdEl.textContent = '⚔ CMD: ' + state.cmdDmgReceived;
+        div.appendChild(cmdEl);
+      }
 
       // Hand backs
-      const handEl2 = document.createElement('div');
-      handEl2.className = 'opp-hand-cards';
-      const hc = state.handCount || 0;
-      for (let i = 0; i < Math.min(hc, 12); i++) {
-        const card = document.createElement('div');
-        card.className = 'opp-hand-card';
-        handEl2.appendChild(card);
-      }
-      div.appendChild(handEl2);
+      // hand shown as floating cards at top
 
       oppPanel.appendChild(div);
 
@@ -1402,18 +1846,171 @@
       bf.className = 'opp-bf';
       bf.dataset.seat = opp.seat;
       if (state.battlefield && state.battlefield.length) {
+        const bfEl = document.getElementById('layout');
+        const bfW = bfEl ? bfEl.offsetWidth : window.innerWidth;
+        const bfH = bfEl ? bfEl.offsetHeight : (window.innerHeight - 28);
         state.battlefield.forEach(card => {
           const mini = document.createElement('div');
           mini.className = 'opp-card-mini' + (card.tapped ? ' tapped' : '');
+          mini.style.position = 'absolute';
+          // Mirror: flip both axes so cards appear across the table
+          const mirrorX = bfW - (card.x || 0) - 75;
+          const mirrorY = bfH - (card.y || 0) - 104;
+          mini.style.left = Math.max(0, mirrorX) + 'px';
+          mini.style.top = Math.max(0, mirrorY) + 'px';
           if (card.imgUrl) {
             const img = document.createElement('img');
             img.src = card.imgUrl;
             mini.appendChild(img);
+            // Hover preview
+            mini.style.pointerEvents = 'all';
+            mini.addEventListener('mouseenter', () => {
+              const preview = document.getElementById('card-preview');
+              const previewImg = document.getElementById('preview-img');
+              if (preview && previewImg) {
+                previewImg.src = card.imgUrl;
+                preview.style.display = 'block';
+              }
+            });
+            mini.addEventListener('mouseleave', () => {
+              const preview = document.getElementById('card-preview');
+              if (preview) preview.style.display = 'none';
+            });
+          }
+          // Render counter badges
+          if (card.counters && Object.keys(card.counters).length) {
+            const badgeWrap = document.createElement('div');
+            badgeWrap.className = 'opp-counter-badge';
+            Object.entries(card.counters).forEach(([type, info]) => {
+              const val = info.value !== undefined ? info.value : info;
+              if (val && val !== 0) {
+                const pip = document.createElement('span');
+                pip.className = 'opp-counter-pip' + (type.includes('+1') ? ' p1p1' : type === 'loyalty' ? ' loyalty' : type === 'charge' ? ' charge' : '');
+                pip.textContent = type + ':' + val;
+                badgeWrap.appendChild(pip);
+              }
+            });
+            if (badgeWrap.children.length) mini.appendChild(badgeWrap);
           }
           bf.appendChild(mini);
         });
       }
       oppPanel.appendChild(bf);
+
+      // Opponent library zone
+      const oppLib = document.createElement('div');
+      oppLib.className = 'opp-library-zone';
+      const oppLibCount = document.createElement('div');
+      oppLibCount.className = 'opp-library-count';
+      oppLibCount.textContent = state.libraryCount !== undefined ? state.libraryCount : '?';
+      const oppLibLabel = document.createElement('div');
+      oppLibLabel.className = 'opp-library-label';
+      oppLibLabel.textContent = 'Library';
+      oppLib.appendChild(oppLibCount);
+      oppLib.appendChild(oppLibLabel);
+      oppLib.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        document.querySelectorAll('.bf-ctx-menu').forEach(m => m.remove());
+        const menu = document.createElement('div');
+        menu.style.cssText = 'position:fixed;left:' + e.clientX + 'px;top:' + e.clientY + 'px;background:#1a1a24;border:1px solid #3a3a4a;border-radius:8px;z-index:9999;min-width:200px;box-shadow:0 4px 16px rgba(0,0,0,0.8);overflow:hidden;';
+        const counts = [1, 3, 5, 7];
+        counts.forEach((n, i) => {
+          const item = document.createElement('div');
+          item.textContent = 'Request top ' + n + ' card' + (n>1?'s':'');
+          item.style.cssText = 'padding:9px 16px;cursor:pointer;font-size:12px;color:#e0e0e0;' + (i>0?'border-top:1px solid #2a2a3a;':'');
+          item.addEventListener('mouseenter', () => item.style.background='#2a2a3a');
+          item.addEventListener('mouseleave', () => item.style.background='');
+          item.addEventListener('click', () => {
+            const oppSeat = mpPlayers.find(p => p.seat !== mySeat)?.seat;
+            if (oppSeat !== undefined && socket) {
+              socket.emit('libraryRevealRequest', { targetSeat: oppSeat, count: n });
+              setStatus('Library reveal request sent for top ' + n + '...');
+            }
+            menu.remove();
+          });
+          menu.appendChild(item);
+        });
+        document.body.appendChild(menu);
+        setTimeout(() => document.addEventListener('click', () => menu.remove(), {once:true}), 10);
+      });
+      bf.appendChild(oppLib);
+
+      // Opponent commander zone
+      const oppCmd = document.createElement('div');
+      oppCmd.className = 'opp-commander-zone';
+      if (state.commanderCard && state.commanderCard.imgUrl) {
+        const cmdImg = document.createElement('img');
+        cmdImg.src = state.commanderCard.imgUrl;
+        cmdImg.title = state.commanderCard.name || 'Commander';
+        oppCmd.appendChild(cmdImg);
+        const cmdLabel = document.createElement('div');
+        cmdLabel.className = 'opp-commander-label';
+        cmdLabel.textContent = 'Commander';
+        oppCmd.appendChild(cmdLabel);
+        // Click to preview
+        oppCmd.addEventListener('click', () => {
+          const preview = document.getElementById('card-preview');
+          const previewImg = document.getElementById('preview-img');
+          if (preview && previewImg) {
+            previewImg.src = state.commanderCard.imgUrl;
+            preview.style.display = preview.style.display === 'block' ? 'none' : 'block';
+          }
+        });
+      } else {
+        const empty = document.createElement('div');
+        empty.className = 'opp-commander-empty';
+        empty.textContent = 'No\nCommander';
+        oppCmd.appendChild(empty);
+      }
+      bf.appendChild(oppCmd);
+
+      // Opponent graveyard overlay
+      const oppGy = document.createElement('div');
+      oppGy.className = 'opp-gy-zone';
+      const oppGyLabel = document.createElement('div');
+      oppGyLabel.className = 'opp-zone-label';
+      oppGyLabel.id = 'opp-gy-label-' + opp.seat;
+      oppGyLabel.textContent = 'GY: ' + (state.graveyardCount || 0);
+      oppGy.appendChild(oppGyLabel);
+      if (state.graveyardTop) {
+        const gyImg = document.createElement('div');
+        gyImg.className = 'opp-card-mini';
+        const gi = document.createElement('img');
+        gi.src = state.graveyardTop;
+        gyImg.appendChild(gi);
+        oppGy.appendChild(gyImg);
+      }
+      oppGy.addEventListener('click', () => {
+        if (state.graveyardCards && state.graveyardCards.length) {
+          openOppZoneViewer('Opponent Graveyard', state.graveyardCards);
+        }
+      });
+      bf.appendChild(oppGy);
+
+      // Opponent exile overlay
+      const oppEx = document.createElement('div');
+      oppEx.className = 'opp-ex-zone';
+      const oppExLabel2 = document.createElement('div');
+      oppExLabel2.className = 'opp-zone-label';
+      oppExLabel2.textContent = 'Exile: ' + (state.exileCount || 0);
+      oppEx.appendChild(oppExLabel2);
+      if (state.exileCards && state.exileCards.length) {
+        const exTop = state.exileCards[state.exileCards.length - 1];
+        if (exTop && exTop.imgUrl) {
+          const exImg = document.createElement('div');
+          exImg.className = 'opp-card-mini';
+          const ei = document.createElement('img');
+          ei.src = exTop.imgUrl;
+          exImg.appendChild(ei);
+          oppEx.appendChild(exImg);
+        }
+      }
+      oppEx.addEventListener('click', () => {
+        if (state.exileCards && state.exileCards.length) {
+          openOppZoneViewer('Opponent Exile', state.exileCards);
+        }
+      });
+      bf.appendChild(oppEx);
     });
   }
 
@@ -1475,21 +2072,37 @@
 
   // ── State broadcasting ──
   function getMyPublicState() {
-    // Only cards directly on battlefield, not in sub-zones (library, graveyard, exile, commander, hand)
+    // Use getElementById so this works regardless of script order
+    const _bf = document.getElementById('battlefield');
+    const _hand = document.getElementById('hand');
+    const _lib = document.getElementById('library');
+    const _gy = document.getElementById('graveyard');
+    const _ex = document.getElementById('exile');
+    const _cmd = document.getElementById('commander');
     const subZoneIds = ['library','commander','graveyard','exile','hand'];
-    const bfCards = Array.from(battlefield ? battlefield.querySelectorAll('.card') : [])
+    const bfCards = Array.from(_bf ? _bf.querySelectorAll('.card') : [])
       .filter(c => !subZoneIds.some(id => document.getElementById(id)?.contains(c)))
       .map(c => ({
-      name: c.dataset.name,
-      imgUrl: c.dataset.front,
-      tapped: c.classList.contains('tapped')
-    }));
+        name: c.dataset.name,
+        imgUrl: c.dataset.front,
+        tapped: c.classList.contains('tapped'),
+        x: parseFloat(c.style.left) || 0,
+        y: parseFloat(c.style.top) || 0,
+        counters: (() => { try { return JSON.parse(c.dataset.countersData || '{}'); } catch(e) { return {}; } })()
+      }));
+    const gyCards = Array.from(_gy ? _gy.querySelectorAll('.card') : []);
+    const exCards = Array.from(_ex ? _ex.querySelectorAll('.card') : []);
+    const cmdCard = _cmd ? _cmd.querySelector('.card') : null;
     return {
-      life: life,
-      handCount: handDiv ? handDiv.querySelectorAll('.card').length : 0,
-      libraryCount: libraryDiv ? libraryDiv.querySelectorAll('.card').length : 0,
-      graveyardCount: graveyardDiv ? graveyardDiv.querySelectorAll('.card').length : 0,
-      exileCount: exileDiv ? exileDiv.querySelectorAll('.card').length : 0,
+      life: window._gameLife || 40,
+      handCount: _hand ? _hand.querySelectorAll('.card').length : 0,
+      libraryCount: _lib ? _lib.querySelectorAll('.card').length : 0,
+      graveyardCount: gyCards.length,
+      graveyardTop: gyCards.length ? gyCards[gyCards.length-1].dataset.front : null,
+      graveyardCards: gyCards.map(c => ({ name: c.dataset.name, imgUrl: c.dataset.front })),
+      commanderCard: cmdCard ? { name: cmdCard.dataset.name, imgUrl: cmdCard.dataset.front } : null,
+      exileCount: exCards.length,
+      exileCards: exCards.map(c => ({ name: c.dataset.name, imgUrl: c.dataset.front })),
       battlefield: bfCards
     };
   }
@@ -1499,33 +2112,6 @@
     socket.emit('stateUpdate', getMyPublicState());
   }
 
-  // ── Patch addLog: sync logs to all players + broadcast state on every action ──
-  const _origAddLog = addLog;
-  window.addLog = function(msg) {
-    _origAddLog(msg); // write to local log as normal
-    if (socket && myRoom && !isSpectator) {
-      // Emit to server — server will io.to(room).emit back to all players
-      socket.emit('gameAction', {
-        type: 'action',
-        msg: myName + ': ' + msg,
-        publicMsg: myName + ': ' + msg
-      });
-      // Immediately broadcast state so opponents see battlefield changes
-      broadcastMyState();
-    }
-  };
-
-  function mpEmitAction(type, msg) {
-    if (!socket || !myRoom || isSpectator) return;
-    socket.emit('gameAction', { type, msg: myName + ': ' + msg, publicMsg: myName + ': ' + msg });
-    broadcastMyState();
-  }
-
-  function mpEmitPrivate(type, privateMsg, publicMsg) {
-    if (!socket || !myRoom || isSpectator) return;
-    socket.emit('privateAction', { type, msg: privateMsg, publicMsg: myName + ': ' + publicMsg });
-    broadcastMyState();
-  }
 
   // ── Private log ──
   function addPrivateLog(msg, isMine) {
@@ -1601,18 +2187,12 @@
     sb.appendChild(mpEl);
 
     // Private log button removed
-    document.getElementById('private-log-close').addEventListener('click', () => {
-      document.getElementById('private-log-panel').classList.remove('open');
+    document.getElementById('private-log-close')?.addEventListener('click', () => {
+      document.getElementById('private-log-panel')?.classList.remove('open');
     });
   })();
 
-  // Patch life change to broadcast
-  const _origUpdateLife = updateLife;
-  window.updateLife = function(newVal) {
-    _origUpdateLife(newVal);
-    mpEmitAction('life', 'life \u2192 ' + newVal);
-    broadcastMyState();
-  };
+
 
   // Patch draw to use private action
   const origDrawBtn = document.getElementById('draw');
@@ -1688,7 +2268,17 @@
   const untapAllBtn    = document.getElementById('untap-all-btn');
   const lifePopup      = document.getElementById('life-popup');
 
-  let life = 40;
+  let life = 40; window.life = life; window._gameLife = life;
+  // Show life total in status bar
+  // life display removed - now in player HUD
+
+  // Keep life display updated
+  const origSetLife = window.setLife;
+  function updateLifeStatus() {
+    const el = document.getElementById('life-status-display');
+    if (el) el.textContent = '♥ ' + life;
+  }
+
   let currentMenu = null;
   let draggedCard = null;
   let dragOffsetX = 0;
@@ -1698,6 +2288,34 @@
   let poison = 0;
 
   const setStatus = msg => { document.getElementById('status-text').textContent = msg; };
+
+  // ── Patch addLog: sync logs to all players + broadcast state on every action ──
+  const _origAddLog = addLog;
+  window.addLog = function(msg) {
+    _origAddLog(msg); // write to local log as normal
+    if (socket && myRoom && !isSpectator) {
+      // Emit to server — server will io.to(room).emit back to all players
+      socket.emit('gameAction', {
+        type: 'action',
+        msg: myName + ': ' + msg,
+        publicMsg: myName + ': ' + msg
+      });
+      // Immediately broadcast state so opponents see battlefield changes
+      broadcastMyState();
+    }
+  };
+
+  function mpEmitAction(type, msg) {
+    if (!socket || !myRoom || isSpectator) return;
+    socket.emit('gameAction', { type, msg: myName + ': ' + msg, publicMsg: myName + ': ' + msg });
+    broadcastMyState();
+  }
+
+  function mpEmitPrivate(type, privateMsg, publicMsg) {
+    if (!socket || !myRoom || isSpectator) return;
+    socket.emit('privateAction', { type, msg: privateMsg, publicMsg: myName + ': ' + publicMsg });
+    broadcastMyState();
+  }
 
   // --- Game Log ---
   const gameLog  = [];
@@ -1756,7 +2374,7 @@
   clearBtn.addEventListener('click', () => { deckInput.value = ''; });
 
   // --- Life popup ---
-  lifeEl.addEventListener('click', e => {
+  lifeEl?.addEventListener('click', e => {
     e.stopPropagation();
     lifePopup.classList.toggle('open');
   });
@@ -1770,11 +2388,19 @@
   function updateLife(newVal) {
     const prev = life;
     life = newVal;
-    lifeEl.textContent = life;
-    lifePopupVal.textContent = life;
-    setStatus('Life: ' + life);
+    window._gameLife = life;  // sync for HUD
+    if (lifeEl) lifeEl.textContent = life;
+    if (lifePopupVal) lifePopupVal.textContent = life;
     addLog('Life: ' + prev + ' → ' + life);
   }
+
+  // Patch life change to broadcast
+  const _origUpdateLife = updateLife;
+  window.updateLife = function(newVal) {
+    _origUpdateLife(newVal);
+    mpEmitAction('life', 'life \u2192 ' + newVal);
+    broadcastMyState();
+  };
   document.getElementById('life-up').addEventListener('click',   () => updateLife(life + 1));
   document.getElementById('life-down').addEventListener('click', () => updateLife(life - 1));
 
@@ -1859,6 +2485,74 @@
     });
   });
 
+  // Right-click on empty battlefield -> action menu
+  battlefield.addEventListener('contextmenu', e => {
+    if (e.target.closest('.card') || e.target.id === 'library' || e.target.id === 'graveyard' || e.target.id === 'exile' || e.target.id === 'commander') return;
+    e.preventDefault();
+    document.querySelectorAll('.bf-ctx-menu').forEach(m => m.remove());
+    const menu = document.createElement('div');
+    menu.className = 'bf-ctx-menu';
+    // Clamp menu position so it never goes off screen
+    const menuW = 180, menuH = 320;
+    const mx = Math.min(e.clientX, window.innerWidth - menuW - 8);
+    const my = Math.min(e.clientY, window.innerHeight - menuH - 8);
+    menu.style.cssText = 'position:fixed;left:' + mx + 'px;top:' + my + 'px;background:#1a1a24;border:1px solid #3a3a4a;border-radius:8px;z-index:9999;min-width:180px;box-shadow:0 4px 16px rgba(0,0,0,0.8);overflow:hidden;';
+    const menuItems = [
+      { label: 'Draw Card >', fn: null, submenu: [
+        { label: 'Draw 1', fn: () => document.getElementById('draw')?.click() },
+        { label: 'Draw 7', fn: () => { for(let i=0;i<7;i++) document.getElementById('draw')?.click(); } },
+        { label: 'Draw X...', fn: () => { const x=parseInt(prompt('How many cards?','1'),10); if(x>0) for(let i=0;i<x;i++) document.getElementById('draw')?.click(); } },
+      ] },
+      { label: 'Mulligan', fn: () => document.getElementById('mulligan-btn')?.click() },
+      { label: 'Untap All', fn: () => document.getElementById('untap-all-btn')?.click() },
+      { label: 'End Turn', fn: () => document.getElementById('end-turn-btn')?.click() },
+      { label: 'Roll d20', fn: () => { const s=document.getElementById('dice-select'); if(s)s.value='d20'; document.getElementById('roll-dice')?.click(); } },
+      { label: 'Create Token', fn: () => document.getElementById('token-btn')?.click() },
+      { label: 'Chat', fn: () => document.getElementById('chat-toggle-btn')?.click() },
+      { label: 'Deck', fn: () => document.getElementById('deck-toggle-btn')?.click() },
+      { label: 'Scoop', fn: () => document.getElementById('scoop-btn')?.click() },
+    ];
+    menuItems.forEach((item, i) => {
+      const el = document.createElement('div');
+      el.textContent = item.label;
+      el.style.cssText = 'padding:9px 16px;cursor:pointer;font-size:12px;color:#e0e0e0;' + (i>0?'border-top:1px solid #2a2a3a;':'');
+      el.addEventListener('mouseenter', () => {
+        el.style.background = '#2a2a3a';
+        if (item.submenu) {
+          document.querySelectorAll('.bf-ctx-submenu').forEach(m => m.remove());
+          const sub = document.createElement('div');
+          sub.className = 'bf-ctx-submenu';
+          const rect = el.getBoundingClientRect();
+          const subW = 160;
+          const subLeft = Math.min(rect.right + 2, window.innerWidth - subW - 8);
+          sub.style.cssText = 'position:fixed;left:' + subLeft + 'px;top:' + rect.top + 'px;background:#1a1a24;border:1px solid #3a3a4a;border-radius:8px;z-index:10000;min-width:' + subW + 'px;box-shadow:0 4px 16px rgba(0,0,0,0.8);overflow:hidden;';
+          item.submenu.forEach((sub_item, j) => {
+            const si = document.createElement('div');
+            si.textContent = sub_item.label;
+            si.style.cssText = 'padding:9px 16px;cursor:pointer;font-size:12px;color:#e0e0e0;' + (j>0?'border-top:1px solid #2a2a3a;':'');
+            si.addEventListener('mouseenter', () => si.style.background = '#2a2a3a');
+            si.addEventListener('mouseleave', () => si.style.background = '');
+            si.addEventListener('click', () => { sub_item.fn(); sub.remove(); menu.remove(); });
+            sub.appendChild(si);
+          });
+          document.body.appendChild(sub);
+        }
+      });
+      el.addEventListener('mouseleave', (ev) => {
+        el.style.background = '';
+        // Don't remove submenu if mouse moved to it
+        setTimeout(() => {
+          const sub = document.querySelector('.bf-ctx-submenu');
+          if (sub && !sub.matches(':hover') && !el.matches(':hover')) sub.remove();
+        }, 400);
+      });
+      el.addEventListener('click', () => { if(item.fn) { item.fn(); menu.remove(); } });
+      menu.appendChild(el);
+    });
+    document.body.appendChild(menu);
+    setTimeout(() => document.addEventListener('click', () => menu.remove(), {once:true}), 10);
+  });
+
   // Right-click on library background → zone menu
   libraryDiv.addEventListener('contextmenu', e => {
     if (e.target.closest('.card')) return;
@@ -1929,10 +2623,11 @@
     positionMenu(menu, e);
   }
 
-  // Click library/graveyard/exile -> open zone viewer
-  [libraryDiv, graveyardDiv, exileDiv].forEach(zone => {
+  // Click graveyard/exile -> open zone viewer (library is private - no peek)
+  [graveyardDiv, exileDiv].forEach(zone => {
     zone.addEventListener('click', () => openZoneViewer(zone.id));
   });
+  // Library click disabled intentionally - deck order is hidden
 
   // Global click: hide menu
   document.addEventListener('click', e => {
@@ -1964,6 +2659,7 @@
     libraryDiv.innerHTML = '<div class="zone-label">Library</div>';
     mulliganCount = 0;
     const loaded = {}, failed = [];
+    window._lastFailedCards = null;
     for (const { name, count } of entries) {
       setStatus('Fetching: ' + name + '…');
       try {
@@ -1978,6 +2674,7 @@
     const loadedTotal = Object.values(loaded).reduce((s, v) => s + v, 0);
     setStatus('Deck loaded: ' + loadedTotal + ' cards.');
     updateLibraryCount();
+    window._lastFailedCards = failed;
     showSummary(loaded, failed, total);
     pendingCommander = true;
   });
@@ -2104,9 +2801,33 @@
       for (const {name, count, reason} of failed)
         html += '<li>' + name + (count > 1 ? ' ×'+count : '') + ' — <em>' + reason + '</em></li>';
       html += '</ul>';
+      html += '<button id="retry-failed-btn" style="margin-top:8px;padding:7px 16px;background:#265226;color:#9dca9d;border:1px solid #3a6a3a;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;">↺ Retry ' + ft + ' Failed Cards</button>';
     }
     document.getElementById('summary-content').innerHTML = html;
     document.getElementById('summary-overlay').classList.add('open');
+    // Wire retry button
+    document.getElementById('retry-failed-btn')?.addEventListener('click', async () => {
+      const toRetry = window._lastFailedCards || [];
+      if (!toRetry.length) return;
+      document.getElementById('retry-failed-btn').textContent = 'Retrying...';
+      document.getElementById('retry-failed-btn').disabled = true;
+      const newLoaded = {}, newFailed = [];
+      for (const { name, count } of toRetry) {
+        setStatus('Retrying: ' + name + '…');
+        await new Promise(r => setTimeout(r, 300)); // slower to avoid rate limit
+        try {
+          const data = await fetchCardData(name);
+          for (let i = 0; i < count; i++) createCardElement(data, libraryDiv, true);
+          newLoaded[name] = (newLoaded[name] || 0) + count;
+        } catch (err) {
+          newFailed.push({ name, count, reason: err.message });
+        }
+      }
+      window._lastFailedCards = newFailed;
+      updateLibraryCount();
+      const retryTotal = toRetry.reduce((s,f)=>s+f.count,0);
+      showSummary(newLoaded, newFailed, retryTotal);
+    });
   }
 
   function closeSummary() {
@@ -2648,6 +3369,11 @@
     const text = chatInput.value.trim();
     if (!text) return;
     chatInput.value = "";
+    // Emit to socket if in multiplayer - don't add locally, wait for socket echo
+    if (typeof socket !== "undefined" && socket && typeof myRoom !== "undefined" && myRoom) {
+      socket.emit("chat", { message: text });
+      return;
+    }
     const now = new Date();
     const hh = String(now.getHours()).padStart(2,"0");
     const mm = String(now.getMinutes()).padStart(2,"0");
@@ -2826,7 +3552,7 @@
     wrapper.style.left = Math.max(0, rect.width / 2 - 37 + Math.random() * 60 - 30) + 'px';
     wrapper.style.top  = Math.max(0, rect.height / 2 - 52 + Math.random() * 60 - 30) + 'px';
     wrapper.style.margin = '0';
-    battlefield.appendChild(wrapper);
+    battlefield.appendChild(wrapper); if(typeof broadcastMyState === "function") broadcastMyState();
     addLog('Copied ' + cardEl.dataset.name + ' → battlefield as token');
     setStatus('Copied ' + cardEl.dataset.name + ' to battlefield.');
     updateZoneCounts();
@@ -2835,6 +3561,409 @@
   window.shuffleLibrary = shuffleLibrary;
   window.drawCard = drawCard;
   window.openSearchLibrary = openSearchLibrary;
+
+  function openOppZoneViewer(title, cards) {
+    const overlay = document.getElementById('zone-viewer-overlay');
+    const titleEl = document.getElementById('zone-viewer-title');
+    const grid = document.getElementById('zone-viewer-grid');
+    titleEl.textContent = title;
+    grid.innerHTML = '';
+    cards.forEach(card => {
+      const div = document.createElement('div');
+      div.className = 'zv-card';
+      div.style.cssText = 'position:relative;cursor:context-menu;';
+      const img = document.createElement('img');
+      img.src = card.imgUrl || 'https://back.scryfall.io/small/back.jpg';
+      img.style.cssText = 'width:100%;height:auto;display:block;';
+      div.appendChild(img);
+      // Right-click menu: copy/steal card
+      div.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Remove any existing menu
+        document.querySelectorAll('.opp-card-ctx-menu').forEach(m => m.remove());
+        const menu = document.createElement('div');
+        menu.className = 'opp-card-ctx-menu';
+        menu.style.cssText = 'position:fixed;left:' + e.clientX + 'px;top:' + e.clientY + 'px;background:#1a1a24;border:1px solid #3a3a4a;border-radius:6px;z-index:9999;min-width:160px;box-shadow:0 4px 16px rgba(0,0,0,0.8);';
+        const actions = [
+          { label: '✋ Copy to Hand', fn: () => { if(card.imgUrl) { const fakeData = {name:card.name||'?',image_uris:{normal:card.imgUrl},card_faces:null}; createCardElement(fakeData, handDiv, true); addLog('Copied ' + (card.name||'card') + ' to hand'); } } },
+          { label: '⚔️ Copy to Battlefield', fn: () => { if(card.imgUrl) { const fakeData = {name:card.name||'?',image_uris:{normal:card.imgUrl},card_faces:null}; createCardElement(fakeData, battlefield, true); addLog('Copied ' + (card.name||'card') + ' to battlefield'); broadcastMyState(); } } },
+        ];
+        actions.forEach(a => {
+          const item = document.createElement('div');
+          item.textContent = a.label;
+          item.style.cssText = 'padding:8px 14px;cursor:pointer;font-size:12px;color:#e0e0e0;';
+          item.addEventListener('mouseenter', () => item.style.background = '#2a2a3a');
+          item.addEventListener('mouseleave', () => item.style.background = '');
+          item.addEventListener('click', () => { a.fn(); menu.remove(); });
+          menu.appendChild(item);
+        });
+        document.body.appendChild(menu);
+        setTimeout(() => document.addEventListener('click', () => menu.remove(), {once:true}), 10);
+      });
+      grid.appendChild(div);
+    });
+    overlay.style.display = 'flex';
+    // Ensure close button works
+    const closeBtn = document.getElementById('zone-viewer-close');
+    if (closeBtn) {
+      const newClose = closeBtn.cloneNode(true);
+      closeBtn.parentNode.replaceChild(newClose, closeBtn);
+      newClose.addEventListener('click', () => { overlay.style.display = 'none'; });
+    }
+  }
+
+  // ── Hand overflow rendering ──
+  const HAND_MAX_VISIBLE = 10;
+
+  function renderHandOverflow() {
+    const cards = Array.from(handDiv.querySelectorAll('.card'));
+    // Hide all cards first
+    cards.forEach((c, i) => {
+      c.style.display = i < HAND_MAX_VISIBLE ? '' : 'none';
+    });
+    // Remove existing overflow card
+    const existing = handDiv.querySelector('.hand-overflow-card');
+    if (existing) existing.remove();
+    // Add overflow card if needed
+    if (cards.length > HAND_MAX_VISIBLE) {
+      const overflow = document.createElement('div');
+      overflow.className = 'hand-overflow-card';
+      const count = document.createElement('div');
+      count.className = 'hand-overflow-count';
+      count.textContent = '+' + (cards.length - HAND_MAX_VISIBLE);
+      const label = document.createElement('div');
+      label.className = 'hand-overflow-label';
+      label.textContent = 'more';
+      overflow.appendChild(count);
+      overflow.appendChild(label);
+      overflow.addEventListener('click', openHandViewer);
+      handDiv.appendChild(overflow);
+    }
+  }
+
+  function openHandViewer() {
+    const overlay = document.getElementById('hand-viewer-overlay');
+    const grid = document.getElementById('hand-viewer-grid');
+    const title = document.getElementById('hand-viewer-title');
+    const cards = Array.from(handDiv.querySelectorAll('.card'));
+    title.textContent = 'Your Hand (' + cards.length + ' cards)';
+    grid.innerHTML = '';
+    cards.forEach(card => {
+      const div = document.createElement('div');
+      div.className = 'hv-card';
+      const img = document.createElement('img');
+      img.src = card.dataset.front || 'https://back.scryfall.io/small/back.jpg';
+      div.appendChild(img);
+      // Right-click to play
+      div.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        document.querySelectorAll('.bf-ctx-menu').forEach(m => m.remove());
+        const menu = document.createElement('div');
+        menu.style.cssText = 'position:fixed;left:' + e.clientX + 'px;top:' + e.clientY + 'px;background:#1a1a24;border:1px solid #3a3a4a;border-radius:8px;z-index:10001;min-width:160px;box-shadow:0 4px 16px rgba(0,0,0,0.8);overflow:hidden;';
+        const actions = [
+          { label: 'Play to Battlefield', fn: () => { battlefield.appendChild(card); card.style.display=''; renderHandOverflow(); overlay.style.display='none'; broadcastMyState(); } },
+          { label: 'Send to Graveyard', fn: () => { graveyardDiv.appendChild(card); card.style.display=''; renderHandOverflow(); overlay.style.display='none'; } },
+        ];
+        actions.forEach((a,i) => {
+          const item = document.createElement('div');
+          item.textContent = a.label;
+          item.style.cssText = 'padding:9px 16px;cursor:pointer;font-size:12px;color:#e0e0e0;' + (i>0?'border-top:1px solid #2a2a3a;':'');
+          item.addEventListener('mouseenter', () => item.style.background='#2a2a3a');
+          item.addEventListener('mouseleave', () => item.style.background='');
+          item.addEventListener('click', () => { a.fn(); menu.remove(); });
+          menu.appendChild(item);
+        });
+        document.body.appendChild(menu);
+        setTimeout(() => document.addEventListener('click', () => menu.remove(), {once:true}), 10);
+      });
+      grid.appendChild(div);
+    });
+    overlay.style.display = 'flex';
+  }
+
+  document.getElementById('hand-viewer-close')?.addEventListener('click', () => {
+    document.getElementById('hand-viewer-overlay').style.display = 'none';
+  });
+
+  // Observe hand for card additions/removals
+  const handObserver = new MutationObserver(renderHandOverflow);
+  handObserver.observe(handDiv, { childList: true });
+
+
+  // ── Opponent floating hand ──
+  const CARD_BACK_URL = 'https://upload.wikimedia.org/wikipedia/en/a/aa/Magic_the_gathering-card_back.jpg';
+  const OPP_HAND_MAX = 10;
+
+  function renderOppHandFloat(handCount) {
+    const container = document.getElementById('opp-hand-float');
+    if (!container) return;
+    container.innerHTML = '';
+    const count = Math.min(handCount || 0, OPP_HAND_MAX);
+    for (let i = 0; i < count; i++) {
+      const card = document.createElement('div');
+      card.className = 'opp-hand-float-card';
+      const img = document.createElement('img');
+      img.src = CARD_BACK_URL;
+      img.alt = 'Card';
+      card.appendChild(img);
+      container.appendChild(card);
+    }
+    // Overflow indicator
+    if ((handCount || 0) > OPP_HAND_MAX) {
+      const more = document.createElement('div');
+      more.className = 'opp-hand-float-card';
+      more.style.cssText = 'display:flex;align-items:center;justify-content:center;background:rgba(10,10,16,0.9);border:2px solid rgba(201,168,76,0.6);flex-direction:column;';
+      more.innerHTML = '<span style="color:#c9a84c;font-size:18px;font-weight:800">+' + ((handCount||0) - OPP_HAND_MAX) + '</span>';
+      container.appendChild(more);
+    }
+  }
+
+  // Hook into state updates to re-render opp hand
+  const _origOnStateUpdate = window.onStateUpdate;
+  // Hook opponent hand render into existing stateUpdate handler
+  window._oppHandRenderHook = function(data) {
+    if (typeof mySeat !== 'undefined' && data.seat !== mySeat && typeof data.handCount !== 'undefined') {
+      renderOppHandFloat(data.handCount);
+    }
+  };
+
+  // ── Card reveal system ──
+  let pendingRevealRequest = null;
+
+  // Add right-click to opponent hand cards
+  function addRevealContextMenu(cardEl, cardIndex) {
+    cardEl.style.pointerEvents = 'all';
+    cardEl.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      document.querySelectorAll('.bf-ctx-menu').forEach(m => m.remove());
+      const menu = document.createElement('div');
+      menu.style.cssText = 'position:fixed;left:' + e.clientX + 'px;top:' + e.clientY + 'px;background:#1a1a24;border:1px solid #3a3a4a;border-radius:8px;z-index:9999;min-width:180px;box-shadow:0 4px 16px rgba(0,0,0,0.8);overflow:hidden;';
+      const item = document.createElement('div');
+      item.textContent = '👁 Request to Reveal';
+      item.style.cssText = 'padding:9px 16px;cursor:pointer;font-size:12px;color:#e0e0e0;';
+      item.addEventListener('mouseenter', () => item.style.background='#2a2a3a');
+      item.addEventListener('mouseleave', () => item.style.background='');
+      item.addEventListener('click', () => {
+        if (socket && myRoom) {
+          // Get opponent seat
+          const oppSeat = mpPlayers.find(p => p.seat !== mySeat)?.seat;
+          if (oppSeat !== undefined) {
+            socket.emit('revealRequest', { targetSeat: oppSeat, cardIndex });
+            setStatus('Reveal request sent...');
+          }
+        }
+        menu.remove();
+      });
+      menu.appendChild(item);
+      document.body.appendChild(menu);
+      setTimeout(() => document.addEventListener('click', () => menu.remove(), {once:true}), 10);
+    });
+  }
+
+  // Patch renderOppHandFloat to add context menus
+  const _origRenderOppHand = renderOppHandFloat;
+  window.renderOppHandFloat = function(handCount) {
+    _origRenderOppHand(handCount);
+    const container = document.getElementById('opp-hand-float');
+    if (!container) return;
+    Array.from(container.querySelectorAll('.opp-hand-float-card')).forEach((card, i) => {
+      addRevealContextMenu(card, i);
+    });
+  };
+
+  // Receive reveal request (card owner)
+  window._onRevealRequest = data => {
+    pendingRevealRequest = data;
+    document.getElementById('reveal-popup-msg').textContent = data.fromName + ' wants to see card #' + (data.cardIndex + 1) + ' from your hand.';
+    document.getElementById('reveal-request-popup').classList.add('open');
+  };
+
+  document.getElementById('reveal-accept-btn')?.addEventListener('click', () => {
+    if (!pendingRevealRequest) return;
+    // Get the actual card from hand
+    const handCards = Array.from(handDiv.querySelectorAll('.card'));
+    const card = handCards[pendingRevealRequest.cardIndex];
+    const cardImgUrl = card ? card.dataset.front : null;
+    const cardName = card ? card.dataset.name : 'Unknown';
+    socket.emit('revealResponse', {
+      toSeat: pendingRevealRequest.fromSeat,
+      accepted: true,
+      cardImgUrl,
+      cardName
+    });
+    document.getElementById('reveal-request-popup').classList.remove('open');
+    pendingRevealRequest = null;
+  });
+
+  document.getElementById('reveal-decline-btn')?.addEventListener('click', () => {
+    if (!pendingRevealRequest) return;
+    socket.emit('revealResponse', {
+      toSeat: pendingRevealRequest.fromSeat,
+      accepted: false
+    });
+    document.getElementById('reveal-request-popup').classList.remove('open');
+    pendingRevealRequest = null;
+  });
+
+  // Receive reveal response (requester)
+  window._onRevealResponse = data => {
+    if (data.accepted && data.cardImgUrl) {
+      document.getElementById('revealed-card-label').textContent = data.fromName + ' revealed: ' + (data.cardName || 'a card');
+      document.getElementById('revealed-card-img').src = data.cardImgUrl;
+      document.getElementById('revealed-card-overlay').classList.add('open');
+    } else {
+      setStatus(data.fromName + ' declined the reveal request.');
+    }
+  };
+
+  document.getElementById('revealed-card-close')?.addEventListener('click', () => {
+    document.getElementById('revealed-card-overlay').classList.remove('open');
+  });
+
+  // ── Library reveal system ──
+  let pendingLibReveal = null;
+
+  window._onLibRevealRequest = data => {
+    pendingLibReveal = data;
+    document.getElementById('lib-reveal-popup-msg').textContent =
+      data.fromName + ' wants to see the top ' + data.count + ' card' + (data.count>1?'s':'') + ' of your library.';
+    document.getElementById('lib-reveal-request-popup').classList.add('open');
+  };
+
+  document.getElementById('lib-reveal-accept-btn')?.addEventListener('click', () => {
+    if (!pendingLibReveal) return;
+    // Get top N cards from library
+    const libCards = Array.from(libraryDiv.querySelectorAll('.card')).slice(-pendingLibReveal.count).reverse();
+    const cards = libCards.map(c => ({ name: c.dataset.name, imgUrl: c.dataset.front }));
+    socket.emit('libraryRevealResponse', {
+      toSeat: pendingLibReveal.fromSeat,
+      accepted: true,
+      cards
+    });
+    document.getElementById('lib-reveal-request-popup').classList.remove('open');
+    pendingLibReveal = null;
+  });
+
+  document.getElementById('lib-reveal-decline-btn')?.addEventListener('click', () => {
+    if (!pendingLibReveal) return;
+    socket.emit('libraryRevealResponse', { toSeat: pendingLibReveal.fromSeat, accepted: false });
+    document.getElementById('lib-reveal-request-popup').classList.remove('open');
+    pendingLibReveal = null;
+  });
+
+  window._onLibRevealResponse = data => {
+    if (data.accepted && data.cards && data.cards.length) {
+      const overlay = document.getElementById('lib-reveal-overlay');
+      const grid = document.getElementById('lib-reveal-grid');
+      const title = document.getElementById('lib-reveal-title');
+      title.textContent = data.fromName + "'s top " + data.cards.length + ' card' + (data.cards.length>1?'s':'');
+      grid.innerHTML = '';
+      data.cards.forEach(card => {
+        const div = document.createElement('div');
+        div.className = 'lib-reveal-card';
+        const img = document.createElement('img');
+        img.src = card.imgUrl || 'https://back.scryfall.io/small/back.jpg';
+        div.appendChild(img);
+        grid.appendChild(div);
+      });
+      overlay.classList.add('open');
+    } else {
+      setStatus(data.fromName + ' declined the library reveal.');
+    }
+  };
+
+  document.getElementById('lib-reveal-close')?.addEventListener('click', () => {
+    document.getElementById('lib-reveal-overlay').classList.remove('open');
+  });
+
+  // ── Player HUD ──
+  {
+  // (runs in main script scope - has direct access to life, handDiv, etc.)
+    const hudCmdDmg = {};
+
+    function getLife() { return life; }
+    function setLife(val) { updateLife(val); }
+
+    function updateHud() {
+      var val = getLife();
+      var el = document.getElementById('player-hud-life-val');
+      var nameEl = document.getElementById('player-hud-name');
+      if (el) {
+        el.textContent = val;
+        el.classList.toggle('low', val <= 5);
+      }
+      if (nameEl) nameEl.textContent = myName || 'You';
+      updateCmdTotal();
+    }
+
+    function updateCmdTotal() {
+      var total = Object.values(hudCmdDmg).reduce(function(s,v){return s+v;}, 0);
+      var el = document.getElementById('player-hud-cmd');
+      if (!el) return;
+      if (total > 0) {
+        el.textContent = '⚔ CMD: ' + total;
+        el.classList.add('has-damage');
+      } else {
+        el.textContent = '⚔ CMD DMG';
+        el.classList.remove('has-damage');
+      }
+    }
+
+    function buildCmdRows() {
+      var rows = document.getElementById('cmd-dmg-rows');
+      if (!rows) return;
+      rows.innerHTML = '';
+      // Get opponents from mpPlayers, fall back to generic slots
+      var _mp = mpPlayers || [];
+      var _seat = mySeat;
+      var opps = _mp.filter(function(p){ return p.seat !== _seat; });
+      // Always show at least one slot
+      if (!opps.length) opps = [{seat: 'opp1', name: 'Opponent 1'}, {seat: 'opp2', name: 'Opponent 2'}];
+      opps.forEach(function(opp) {
+        var key = String(opp.seat);
+        if (!(key in hudCmdDmg)) hudCmdDmg[key] = 0;
+        var row = document.createElement('div');
+        row.className = 'cmd-dmg-row';
+        var nm = document.createElement('div');
+        nm.className = 'cmd-dmg-name';
+        nm.textContent = opp.name || ('P' + (opp.seat+1));
+        var minus = document.createElement('button');
+        minus.className = 'cmd-dmg-btn'; minus.textContent = '-';
+        minus.onclick = function() { hudCmdDmg[key] = Math.max(0,(hudCmdDmg[key]||0)-1); buildCmdRows(); updateCmdTotal(); };
+        var vl = document.createElement('div');
+        vl.className = 'cmd-dmg-val'; vl.id = 'cmdval-'+key; vl.textContent = hudCmdDmg[key] || 0;
+        var plus = document.createElement('button');
+        plus.className = 'cmd-dmg-btn'; plus.textContent = '+';
+        plus.onclick = function() { hudCmdDmg[key] = (hudCmdDmg[key]||0)+1; buildCmdRows(); updateCmdTotal(); };
+        row.appendChild(nm); row.appendChild(minus); row.appendChild(vl); row.appendChild(plus);
+        rows.appendChild(row);
+      });
+    }
+
+    window.addEventListener('load', function() {
+      document.getElementById('phud-up')?.addEventListener('click', function() {
+        setLife(getLife() + 1); updateHud(); if(typeof broadcastMyState==='function') broadcastMyState();
+      });
+      document.getElementById('phud-down')?.addEventListener('click', function() {
+        setLife(getLife() - 1); updateHud(); if(typeof broadcastMyState==='function') broadcastMyState();
+      });
+      document.getElementById('player-hud-cmd')?.addEventListener('click', function(e) {
+        e.stopPropagation();
+        buildCmdRows();
+        document.getElementById('player-cmd-panel')?.classList.toggle('open');
+      });
+      document.addEventListener('click', function(e) {
+        var panel = document.getElementById('player-cmd-panel');
+        if (panel && !panel.contains(e.target) && e.target.id !== 'player-hud-cmd') {
+          panel.classList.remove('open');
+        }
+      });
+    });
+
+    // Keep HUD in sync
+    setInterval(updateHud, 800);
+  }
 </script>
 
 <!-- JOIN SCREEN -->
@@ -2903,6 +4032,93 @@
     <button id="private-log-close">&#x2715;</button>
   </div>
   <div id="private-log-msgs"></div>
+</div>
+
+
+<!-- Hand viewer modal -->
+<div id="hand-viewer-overlay">
+  <div id="hand-viewer-box">
+    <div id="hand-viewer-header">
+      <span id="hand-viewer-title">Your Hand</span>
+      <button id="hand-viewer-close">Close</button>
+    </div>
+    <div id="hand-viewer-grid"></div>
+  </div>
+</div>
+
+
+
+<!-- Opponent floating hand -->
+<div id="opp-hand-float"></div>
+
+
+<!-- Reveal request popup (shown to card owner) -->
+<div id="reveal-request-popup">
+  <div class="reveal-popup-title">👁 Reveal Request</div>
+  <div class="reveal-popup-msg" id="reveal-popup-msg">Player wants to see a card from your hand.</div>
+  <div class="reveal-popup-btns">
+    <button class="reveal-accept-btn" id="reveal-accept-btn">Reveal</button>
+    <button class="reveal-decline-btn" id="reveal-decline-btn">Decline</button>
+  </div>
+</div>
+
+<!-- Revealed card shown to requester -->
+<div id="revealed-card-overlay">
+  <div id="revealed-card-label"></div>
+  <img id="revealed-card-img" src="" alt="Revealed card">
+  <button id="revealed-card-close">Close</button>
+</div>
+
+
+<!-- Library reveal request popup (shown to library owner) -->
+<div id="lib-reveal-request-popup">
+  <div class="reveal-popup-title">📚 Library Reveal Request</div>
+  <div class="reveal-popup-msg" id="lib-reveal-popup-msg">Player wants to see the top X cards of your library.</div>
+  <div class="reveal-popup-btns">
+    <button class="reveal-accept-btn" id="lib-reveal-accept-btn">Allow</button>
+    <button class="reveal-decline-btn" id="lib-reveal-decline-btn">Decline</button>
+  </div>
+</div>
+
+<!-- Library cards viewer (shown to requester) -->
+<div id="lib-reveal-overlay">
+  <div id="lib-reveal-box">
+    <div id="lib-reveal-header">
+      <span id="lib-reveal-title">Top cards</span>
+      <button id="lib-reveal-close">Close</button>
+    </div>
+    <div id="lib-reveal-grid"></div>
+  </div>
+</div>
+
+
+<!-- Commander damage panel -->
+<div id="player-cmd-panel">
+  <div style="font-size:10px;color:#c9a84c;font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.1em;">Commander Damage</div>
+  <div id="cmd-rows"></div>
+  <div style="margin-top:6px;text-align:right;">
+    <span style="font-size:9px;color:#555;cursor:pointer;" id="cmd-panel-close">close</span>
+  </div>
+</div>
+
+
+<!-- Player HUD -->
+<div id="player-hud">
+  <div id="player-hud-name">You</div>
+  <div id="player-hud-life-row">
+    <div style="display:flex;flex-direction:column;gap:3px;">
+      <button class="phud-arrow" id="phud-up">▲</button>
+      <button class="phud-arrow" id="phud-down">▼</button>
+    </div>
+    <div id="player-hud-life-val">40</div>
+  </div>
+  <div id="player-hud-cmd">⚔ CMD DMG</div>
+</div>
+
+<!-- Commander damage panel -->
+<div id="player-cmd-panel">
+  <div id="player-cmd-panel-title">Commander Damage</div>
+  <div id="cmd-dmg-rows"></div>
 </div>
 
 </body>
