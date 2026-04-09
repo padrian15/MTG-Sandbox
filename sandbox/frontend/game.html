@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>2D Side‑Scroller Game</title>
+<style>
+  body {margin:0; background:#111; display:flex; justify-content:center; align-items:center; height:100vh;}
+  canvas {background:#222; image-rendering:pixelated;}
+  #overlay {
+    position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7);
+    color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:20px; font-family:monospace; display:none;
+  }
+  #overlay button {padding:10px 20px; font-size:1.2em; cursor:pointer;}
+</style>
+</head>
+<body>
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+<div id="overlay">
+  <div>Game Over</div>
+  <div>Score: <span id="finalScore">0</span></div>
+  <button id="restartBtn">Restart</button>
+</div>
+
+<script>
+/* ==== Game Constants ==== */
+const CANVAS_WIDTH = 800;
+const CANVAS_HEIGHT = 600;
+const PLAYER_WIDTH = 40;
+const PLAYER_HEIGHT = 50;
+const PLAYER_SPEED = 300; // px/s
+const JUMP_SPEED = 500;
+const GRAVITY = 1200;
+const PLATFORM_HEIGHT = 20;
+const PLATFORM_MIN_WIDTH = 80;
+const PLATFORM_MAX_WIDTH = 200;
+const PLATFORM_GAP_MIN = 80;
+const PLATFORM_GAP_MAX = 180;
+const ENEMY_WIDTH = 30;
+const ENEMY_HEIGHT = 30;
+const ENEMY_SPEED = 50;
+const COIN_SIZE = 20;
+const COIN_SPAWN_CHANCE = 0.3; // per platform
+
+/* ==== Game State ==== */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const overlay = document.getElementById('overlay');
+const finalScoreEl = document.getElementById('finalScore');
+const restartBtn = document.getElementById('restartBtn');
+
+let lastTime = 0;
+let gameOver = false;
+let score = 0;
+let lives = 3;
+
+// Player
+let player = {
+  x: 100,
+  y: CANVAS_HEIGHT - 100,
+  width: PLAYER_WIDTH,
+  height: PLAYER_HEIGHT,
+  velX: 0,
+  velY: 0,
+  onGround: false,
+  jumpsLeft: 2,
+  color: '#0f0'
+};
+
+// World
+let platforms = []; // each {x, y, width, height}
+let enemies = [];   // each {x, y, width, height, dir, minX, maxX}
+let coins = [];     // each {x, y, size, collected}
+
+// Camera
+let cameraX = 0;
+
+// Input
+const keys = {ArrowLeft:false, ArrowRight:false, KeyA:false, KeyD:false, Space:false};
+
+/* ==== Helper Functions ==== */
+function rand(min, max) { return Math.random() * (max - min) + min; }
+function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function rectIntersect(r1, r2) {
+  return r1.x < r2.x + r2.width &&
+         r1.x + r1.width > r2.x &&
+         r1.y < r2.y + r2.height &&
+         r1.y + r1.height > r2.y;
+}
+
+/* ==== Input Handling ==== */
+window.addEventListener('keydown', e => {
+  if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.ArrowLeft = true;
+  if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.ArrowRight = true;
+  if (e.code === 'Space') keys.Space = true;
+});
+window.addEventListener('keyup', e => {
+  if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.ArrowLeft = false;
+  if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.ArrowRight = false;
+  if (e.code === 'Space') keys.Space = false;
+});
+
+/* ==== World Generation ==== */
+function spawnInitialPlatform() {
+  platforms.push({
+    x: 0,
+    y: CANVAS_HEIGHT - 40,
+    width: CANVAS_WIDTH * 2,
+    height: PLATFORM_HEIGHT
+  });
+}
+function generatePlatformsAhead() {
+  // Ensure we have platforms ahead of camera
+  const farthest = platforms.reduce((max, p) => Math.max(max, p.x + p.width), 0);
+  const targetX = cameraX + CANVAS_WIDTH * 2; // generate 2 screens ahead
+  while (farthest < targetX) {
+    const gap = randInt(PLATFORM_GAP_MIN, PLATFORM_GAP_MAX);
+    const width = randInt(PLATFORM_MIN_WIDTH, PLATFORM_MAX_WIDTH);
+    const height = PLATFORM_HEIGHT;
+    const maxY = CANVAS_HEIGHT - 40;
+    const minY = 100;
+    const y = randInt(minY, maxY);
+    const x = farthest + gap;
+    platforms.push({x, y, width, height});
+
+    // Maybe spawn enemy on this platform
+    if (Math.random() < 0.3) {
+      const enemy = {
+        x: x + width/2 - ENEMY_WIDTH/2,
+        y: y - ENEMY_HEIGHT,
+        width: ENEMY_WIDTH,
+        height: ENEMY_HEIGHT,
+        dir: Math.random() < 0.5 ? -1 : 1,
+        minX: x,
+        maxX: x + width - ENEMY_WIDTH
+      };
+      enemies.push(enemy);
+    }
+
+    // Maybe spawn coin
+    if (Math.random() < COIN_SPAWN_CHANCE) {
+      const coin = {
+        x: x + rand(0, width - COIN_SIZE),
+        y: y - COIN_SIZE,
+        size: COIN_SIZE,
+        collected: false
+      };
+      coins.push(coin);
+    }
+  }
+}
+
+/* ==== Game Logic ==== */
+function update(dt) {
+  if (gameOver) return;
+
+  // Player input
+  const accel = keys.ArrowLeft || keys.KeyA ? -1 : (keys.ArrowRight || keys.KeyD ? 1 : 0);
+  player.velX = accel * PLAYER_SPEED;
+
+  // Jump
+  if (keys.Space && (player.onGround || player.jumpsLeft > 0)) {
+    player.velY = -JUMP_SPEED;
+    player.onGround = false;
+    player.jumpsLeft--;
+    keys.Space = false; // consume jump press
+  }
+
+  // Apply gravity
+  player.velY += GRAVITY * dt;
+
+  // Move player
+  player.x += player.velX * dt;
+  player.y += player.velY * dt;
+
+  // Camera follows player
+  cameraX = player.x - CANVAS_WIDTH / 2;
+  if (cameraX < 0) cameraX = 0;
+
+  // Platform collision
+  player.onGround = false;
+  for (const p of platforms) {
+    // Only check platforms near player
+    if (p.x + p.width < player.x - 50) continue;
+    if (p.x > player.x + player.width + 50) continue;
+
+    // AABB sweep: check from previous frame? simple: check after movement
+    const playerNext = {
+      x: player.x,
+      y: player.y,
+      width: player.width,
+      height: player.height
+    };
+    // Resolve vertical collisions first
+    if (player.velY > 0) { // falling
+      if (playerNext.y + playerNext.height > p.y &&
+          playerNext.y < p.y &&
+          playerNext.x + playerNext.width > p.x &&
+          playerNext.x < p.x + p.width) {
+        player.y = p.y - player.height;
+        player.velY = 0;
+        player.onGround = true;
+        player.jumpsLeft = 2;
+      }
+    }
+    else if (player.velY < 0) { // jumping up
+      if (playerNext.y < p.y + p.height &&
+          playerNext.y + playerNext.height > p.y &&
+          playerNext.x + playerNext.width > p.x &&
+          playerNext.x < p.x + p.width) {
+        player.y = p.y + p.height;
+        player.velY = 0;
+      }
+    }
+    // Horizontal collisions (block movement)
+    if (player.velX > 0) {
+      if (playerNext.x + playerNext.width > p.x &&
+          playerNext.x < p.x &&
+          playerNext.y + playerNext.height > p.y &&
+          playerNext.y < p.y + p.height) {
+        player.x = p.x - player.width;
+        player.velX = 0;
+      }
+    }
+    else if (player.velX < 0) {
+      if (playerNext.x < p.x + p.width &&
+          playerNext.x + playerNext.width > p.x &&
+          playerNext.y + playerNext.height > p.y &&
+          playerNext.y < p.y + p.height) {
+        player.x = p.x + p.width;
+        player.velX = 0;
+      }
+    }
+  }
+
+  // Enemy update
+  for (const e of enemies) {
+    e.x += e.dir * ENEMY_SPEED * dt;
+    if (e.x <= e.minX) { e.dir = 1; e.x = e.minX; }
+    if (e.x >= e.maxX) { e.dir = -1; e.x = e.maxX; }
+
+    // Enemy vs player (stomp)
+    if (player.velY > 0 && // falling
+        player.y + player.height > e.y &&
+        player.y < e.y &&
+        player.x + player.width > e.x &&
+        player.x < e.x + e.width) {
+      // stomp
+      player.velY = -JUMP_SPEED * 0.7; // bounce
+      // remove enemy
+      const idx = enemies.indexOf(e);
+      if (idx > -1) enemies.splice(idx, 1);
+      score += 10;
+    }
+    // Enemy vs player (side damage)
+    else if (rectIntersect(player, e)) {
+      // side hit -> lose life
+      loseLife();
+    }
+  }
+
+  // Coin collection
+  for (const c of coins) {
+    if (!c.collected && rectIntersect(player, c)) {
+      c.collected = true;
+      score++;
+    }
+  }
+
+  // Remove offscreen entities to keep arrays small
+  platforms = platforms.filter(p => p.x + p.width > cameraX - 200);
+  enemies = enemies.filter(e => e.x + e.width > cameraX - 200 && e.x < cameraX + CANVAS_WIDTH + 200);
+  coins = coins.filter(c => !c.collected && c.x + c.size > cameraX - 200 && c.x < cameraX + CANVAS_WIDTH + 200);
+
+  // Generate more platforms
+  generatePlatformsAhead();
+
+  // Check for fall death
+  if (player.y > CANVAS_HEIGHT + 100) {
+    loseLife();
+  }
+}
+
+function loseLife() {
+  lives--;
+  if (lives <= 0) {
+    gameOver = true;
+    finalScoreEl.textContent = score;
+    overlay.style.display = 'flex';
+  } else {
+    // reset player position
+    player.x = 100;
+    player.y = CANVAS_HEIGHT - 100;
+    player.velX = 0;
+    player.velY = 0;
+    player.onGround = false;
+    player.jumpsLeft = 2;
+    cameraX = 0;
+  }
+}
+
+/* ==== Rendering ==== */
+function render() {
+  ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+  // background gradient
+  const grad = ctx.createLinearGradient(0,0,0,CANVAS_HEIGHT);
+  grad.addColorStop(0, '#001');
+  grad.addColorStop(1, '#003');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,CANVAS_WIDTH,CANVAS_HEIGHT);
+
+  // draw platforms
+  ctx.fillStyle = '#555';
+  for (const p of platforms) {
+    ctx.fillRect(p.x - cameraX, p.y, p.width, p.height);
+  }
+
+  // draw enemies
+  ctx.fillStyle = '#f55';
+  for (const e of enemies) {
+    ctx.fillRect(e.x - cameraX, e.y, e.width, e.height);
+  }
+
+  // draw coins
+  ctx.fillStyle = '#ff0';
+  for (const c of coins) {
+    if (!c.collected) {
+      ctx.beginPath();
+      ctx.arc(c.x - cameraX + c.size/2, c.y + c.size/2, c.size/2, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  // draw player
+  ctx.fillStyle = player.onGround ? '#0f0' : '#0b0';
+  ctx.fillRect(player.x - cameraX, player.y, player.width, player.height);
+
+  // UI
+  ctx.fillStyle = '#fff';
+  ctx.font = '20px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText(`Score: ${score}`, 10, 30);
+  ctx.fillText(`Lives: ${lives}`, 10, 60);
+}
+
+/* ==== Game Loop ==== */
+function loop(timestamp) {
+  const dt = (timestamp - lastTime) / 1000;
+  lastTime = timestamp;
+  update(dt);
+  render();
+  if (!gameOver) requestAnimationFrame(loop);
+}
+
+/* ==== Restart ==== */
+function resetGame() {
+  gameOver = false;
+  score = 0;
+  lives = 3;
+  player.x = 100;
+  player.y = CANVAS_HEIGHT - 100;
+  player.velX = 0;
+  player.velY = 0;
+  player.onGround = false;
+  player.jumpsLeft = 2;
+  cameraX = 0;
+  platforms.length = 0;
+  enemies.length = 0;
+  coins.length = 0;
+  keys.ArrowLeft = false;
+  keys.ArrowRight = false;
+  keys.KeyA = false;
+  keys.KeyD = false;
+  keys.Space = false;
+  overlay.style.display = 'none';
+  spawnInitialPlatform();
+  generatePlatformsAhead();
+  lastTime = performance.now();
+  requestAnimationFrame(loop);
+}
+
+/* ==== Event Listeners ==== */
+restartBtn.addEventListener('click', resetGame);
+
+/* ==== Start ==== */
+resetGame();
+</script>
+</body>
+</html>

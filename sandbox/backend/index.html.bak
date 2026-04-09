@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MTG Multiplayer Sandbox</title>
+    <style>
+        :root {
+            --bg: #1a1a1a;
+            --panel: #2a2a2a;
+            --text: #eee;
+            --accent: #4a90e2;
+            --danger: #e74c3c;
+            --success: #2ecc71;
+        }
+
+        body, html {
+            margin: 0; padding: 0; height: 100%;
+            background: var(--bg); color: var(--text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+
+        /* --- Room Entry (The Gate) --- */
+        #room-overlay {
+            position: fixed; inset: 0; background: var(--bg);
+            z-index: 1000; display: flex; align-items: center; justify-content: center;
+            flex-direction: column;
+        }
+        .room-box {
+            background: var(--panel); padding: 2rem; border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center;
+            border: 1px solid #444;
+        }
+        .room-box input {
+            background: #111; color: #fff; border: 1px solid #666;
+            padding: 10px; font-size: 1.2rem; text-align: center;
+            width: 120px; margin-bottom: 1rem; border-radius: 4px;
+        }
+        .room-box button {
+            background: var(--accent); color: white; border: none;
+            padding: 10px 20px; font-size: 1rem; cursor: pointer;
+            border-radius: 4px; font-weight: bold;
+        }
+        .room-box button:hover { filter: brightness(1.2); }
+
+        /* --- Main Layout --- */
+        #game-container {
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            height: 100vh;
+            visibility: hidden; /* Hidden until room joined */
+        }
+
+        .side-panel {
+            background: var(--panel);
+            border: 1px solid #333;
+            display: flex; flex-direction: column;
+            padding: 1rem; gap: 1rem;
+            overflow-y: auto;
+        }
+
+        /* --- Board Zones --- */
+        #board {
+            position: relative;
+            background: #222;
+            background-image: radial-gradient(#333 1px, transparent 1px);
+            background-size: 20px 20px;
+            overflow: hidden;
+        }
+
+        .zone {
+            position: absolute;
+            border: 2px dashed #444;
+            border-radius: 8px;
+            display: flex; flex-wrap: wrap;
+            align-content: flex-start; gap: 5px;
+            padding: 10px;
+        }
+        .zone-label {
+            position: absolute; top: -20px; left: 0;
+            font-size: 0.8rem; color: #888; text-transform: uppercase;
+        }
+
+        #battlefield { inset: 50px 50px 150px 50px; }
+        #library { width: 150px; height: 200px; bottom: 20px; left: 20px; }
+        #graveyard { width: 150px; height: 200px; bottom: 20px; right: 20px; }
+        #exile { width: 150px; height: 100px; top: 20px; right: 20px; }
+        #commander { width: 150px; height: 220px; top: 20px; left: 20px; }
+
+        /* --- Cards --- */
+        .card {
+            width: 100px; height: 140px;
+            background: #333; border-radius: 6px;
+            cursor: grab; position: relative;
+            transition: transform 0.1s;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        .card img { width: 100%; height: 100%; border-radius: 6px; pointer-events: none; }
+        .card:active { cursor: grabbing; transform: scale(1.05); z-index: 100; }
+
+        /* --- Overlays & Modals --- */
+        .overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+            z-index: 500; display: none; align-items: center; justify-content: center;
+        }
+        .overlay.open { display: flex; }
+        .modal {
+            background: var(--panel); padding: 2rem; border-radius: 12px;
+            max-width: 500px; width: 90%; border: 1px solid #444;
+        }
+
+        textarea#deck-input {
+            width: 100%; height: 200px; background: #111; color: #fff;
+            border: 1px solid #444; padding: 10px; font-family: monospace;
+            margin-bottom: 1rem; border-radius: 4px;
+        }
+
+        /* --- Log & Status --- */
+        #log-panel-inner { height: 100%; display: flex; flex-direction: column-reverse; overflow-y: auto; }
+        .log-entry { font-size: 0.85rem; margin-bottom: 4px; border-bottom: 1px solid #333; padding-bottom: 2px; }
+        .log-time { color: #666; margin-right: 8px; font-family: monospace; }
+        #status-text { font-style: italic; color: var(--accent); margin-bottom: 1rem; }
+
+        .btn-group { display: flex; gap: 10px; }
+        button { cursor: pointer; padding: 8px 12px; border-radius: 4px; border: none; font-weight: bold; }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+
+        ul#commander-list { list-style: none; padding: 0; max-height: 300px; overflow-y: auto; }
+        ul#commander-list li { 
+            padding: 8px; background: #333; margin-bottom: 4px; 
+            cursor: pointer; border-radius: 4px; 
+        }
+        ul#commander-list li:hover { background: var(--accent); }
+    </style>
+</head>
+<body>
+
+    <!-- Room Entry (The Gate) -->
+    <div id="room-overlay">
+        <div class="room-box">
+            <h2>Join Sandbox</h2>
+            <p>Enter a 4-digit room code</p>
+            <input type="text" id="room-code" maxlength="4" placeholder="0000">
+            <br>
+            <div class="btn-group" style="justify-content: center;">
+                <button id="join-btn" class="btn-primary">Join Room</button>
+                <button id="create-btn" class="btn-primary" style="background: #666;">Create Room</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Game UI -->
+    <div id="game-container">
+        <div class="side-panel">
+            <h3>Deck Import</h3>
+            <div id="status-text">Ready</div>
+            <textarea id="deck-input" placeholder="1 Sol Ring&#10;1 Arcane Signet..."></textarea>
+            <div class="btn-group">
+                <button id="import-btn" class="btn-primary">Import</button>
+                <button id="clear-btn" class="btn-danger">Clear</button>
+            </div>
+            <hr style="width:100%; border:0; border-top:1px solid #444; margin: 1rem 0;">
+            <div id="player-info">
+                <p>Life: <span id="life-val">40</span></p>
+                <p>Poison: <span id="poison-val">0</span></p>
+            </div>
+        </div>
+
+        <div id="board">
+            <div id="commander" class="zone"><div class="zone-label">Commander</div></div>
+            <div id="battlefield" class="zone"><div class="zone-label">Battlefield</div></div>
+            <div id="library" class="zone"><div class="zone-label">Library</div></div>
+            <div id="graveyard" class="zone"><div class="zone-label">Graveyard</div></div>
+            <div id="exile" class="zone"><div class="zone-label">Exile</div></div>
+        </div>
+
+        <div class="side-panel">
+            <h3>Game Log</h3>
+            <div id="log-badge" style="display:none; font-size:0.7rem; color:var(--accent); margin-bottom:5px;"></div>
+            <div id="log-panel-inner">
+                <div id="log-empty">No actions yet...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="summary-overlay" class="overlay">
+        <div class="modal">
+            <h3>Import Summary</h3>
+            <div id="summary-content"></div>
+            <button id="summary-close" class="btn-primary">Continue</button>
+        </div>
+    </div>
+
+    <div id="commander-overlay" class="overlay">
+        <div class="modal">
+            <h3>Select Commander</h3>
+            <ul id="commander-list"></ul>
+        </div>
+    </div>
+
+    <!-- Modular Scripts -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="mtg-core/core.js"></script>
+    <script src="mtg-core/importer.js"></script>
+    <script src="mtg-core/game.js"></script>
+    <script src="mtg-core/socket.js"></script>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            // Order of initialization is key
+            initGame();
+            initImporter();
+            initSocket();
+        });
+    </script>
+</body>
+</html>

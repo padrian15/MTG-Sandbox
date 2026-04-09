@@ -1,0 +1,2909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MTG Sandbox – Single Player Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: #0f0f13; }
+  ::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3a3a4a; }
+
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    font-family: 'Inter', system-ui, sans-serif;
+    overflow: hidden;
+    background: #0f0f13;
+    color: #e0e0e0;
+  }
+
+  #status-bar {
+    position: fixed; top: 0; left: 0; width: 100%; height: 28px;
+    background: #0a0a10;
+    border-bottom: 1px solid #1a1a24;
+    color: #888;
+    padding: 0 10px;
+    box-sizing: border-box;
+    z-index: 1000;
+    font-size: 12px;
+    display: flex; align-items: center;
+  }
+
+  #deck-panel {
+    position: fixed; top: 28px; left: 0; width: 100%;
+    background: #1a1a24;
+    border-bottom: 1px solid #2a2a3a;
+    padding: 12px 16px;
+    box-sizing: border-box;
+    z-index: 900;
+    display: none; flex-direction: row; gap: 10px; align-items: flex-start;
+  }
+  #deck-panel.open { display: flex; }
+  #deck-panel textarea {
+    flex: 1; height: 120px; resize: vertical;
+    font-family: monospace; font-size: 0.85em;
+    background: #0f0f13; color: #e0e0e0;
+    border: 1px solid #2a2a3a; border-radius: 6px;
+    padding: 8px; box-sizing: border-box;
+  }
+  #deck-panel textarea:focus { outline: none; border-color: #c9a84c; }
+  #deck-panel-btns { display: flex; flex-direction: column; gap: 6px; }
+  #deck-panel-btns button {
+    padding: 7px 16px; cursor: pointer;
+    border-radius: 6px; white-space: nowrap;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 0.85em; font-weight: 600;
+  }
+  #import-btn {
+    background: #c9a84c; color: #000;
+    border: 1px solid #c9a84c;
+  }
+  #import-btn:hover { background: #d9b85c; }
+  #clear-btn {
+    background: #2a2a3a; color: #e0e0e0;
+    border: 1px solid #3a3a4a;
+  }
+  #clear-btn:hover { background: #3a3a4a; }
+
+  #layout {
+    position: fixed; top: 28px; left: 0; right: 0; bottom: 212px;
+    overflow: hidden;
+    transition: top 0.2s ease;
+  }
+  body.mp-active #layout {
+    top: calc(50vh);
+  }
+
+  .zone {
+    border: 1px solid #2a2a3a;
+    border-radius: 8px;
+    padding: 8px;
+    background: #141820;
+    color: #e0e0e0;
+    box-sizing: border-box;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.4);
+  }
+  .zone-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #888;
+    margin-bottom: 5px;
+    pointer-events: none; user-select: none;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .zone-count-badge {
+    background: #922; color: #fff;
+    border-radius: 8px; padding: 1px 6px;
+    font-size: 0.85em; font-weight: bold;
+  }
+
+  .zone.commander {
+    border: 1px solid #c9a84c;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.4), 0 0 16px rgba(201,168,76,0.15);
+    position: absolute; bottom: 140px; left: 0;
+    width: 100px; height: 140px; overflow: hidden;
+    background: rgba(10,10,16,0.88); z-index: 20;
+  }
+  .zone.commander .zone-label { color: #c9a84c; pointer-events: none; }
+  .zone.commander > .card { border: 2px solid #c9a84c; box-shadow: 0 0 16px rgba(201,168,76,0.4); }
+
+  .zone.battlefield {
+    background: radial-gradient(ellipse at center, #0d1a0d 0%, #141820 100%);
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden;
+    border: none; border-radius: 0; padding: 0; box-shadow: none;
+  }
+  .zone.hand {
+    position: fixed; bottom: 72px; left: 0; right: 0; height: 160px;
+    background: #0a0a10; border-top: 2px solid #1e1e2a; border-radius: 0;
+    overflow-x: auto; overflow-y: hidden;
+    display: flex; flex-wrap: nowrap; align-items: center;
+    padding: 0 12px; gap: 4px; box-sizing: border-box;
+    z-index: 100; box-shadow: 0 -4px 20px rgba(0,0,0,0.6);
+  }
+  .zone.hand .zone-label {
+    flex-shrink: 0; writing-mode: vertical-rl; transform: rotate(180deg);
+    font-size: 10px; color: #444; letter-spacing: 0.12em;
+    text-transform: uppercase; margin-right: 4px; user-select: none;
+    pointer-events: none;
+  }
+  .zone.library {
+    position: absolute; bottom: 0; left: 0;
+    width: 100px; height: 140px; overflow: hidden;
+    background: #1a472a; z-index: 20; cursor: pointer;
+    border: 1px solid rgba(201,168,76,0.5); border-radius: 6px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .zone.library .card { display: none !important; }
+  .zone.library .zone-label {
+    color: #9dca9d; text-align: center; font-size: 10px;
+    writing-mode: horizontal-tb; transform: none; margin: 0;
+    pointer-events: none; letter-spacing: 0.08em; line-height: 1.6;
+  }
+  .zone.graveyard, .zone.exile {
+    background: rgba(10,10,16,0.88);
+    position: absolute; overflow: hidden; cursor: pointer;
+    width: 100px; height: 140px; z-index: 20;
+    border: 1px solid #2a2a3a; border-radius: 6px;
+  }
+  .zone.graveyard { bottom: 0; right: 0; }
+  .zone.exile { bottom: 140px; right: 0; }
+  .zone.graveyard > .card:not(:last-child),
+  .zone.exile > .card:not(:last-child) { display: none; }
+
+  .zone.drag-over {
+    border-color: #c9a84c;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.4), 0 0 12px rgba(201,168,76,0.3);
+  }
+
+  .card {
+    width: 75px; height: auto;
+    border: 1px solid #3a3a4a;
+    border-radius: 6px;
+    position: relative; margin: 3px;
+    cursor: move;
+    display: inline-block; vertical-align: top; flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    transition: transform 0.1s ease;
+    overflow: visible;
+  }
+  .card img { width: 100%; height: auto; display: block; pointer-events: none; border-radius: 5px; }
+  .card:hover { transform: scale(1.05); z-index: 10; }
+  .card.tapped { opacity: 0.85; }
+  .card .name {
+    position: absolute; bottom: 2px; left: 2px; right: 2px;
+    background: rgba(0,0,0,0.75); color: #e0e0e0;
+    font-size: 0.65em; padding: 2px; overflow: hidden;
+    white-space: nowrap; text-overflow: ellipsis;
+    pointer-events: none;
+  }
+
+  .zone.battlefield > .card { margin: 0; }
+
+  .card.token {
+    background: linear-gradient(135deg, #2a2a3a, #1e1e2e);
+    width: 75px; height: 104px;
+    display: inline-flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    border: 1px solid #3a3a4a;
+    box-sizing: border-box;
+    border-radius: 6px;
+  }
+  .card.token .token-name { font-size: 0.6em; color: #e0e0e0; font-weight: bold; text-align: center; padding: 2px 4px; }
+  .card.token .token-pt  { font-size: 0.85em; color: #c9a84c; font-weight: bold; margin-top: 4px; }
+
+  /* Counter badges — interactive column, top-left of card */
+  .counter-badges-wrap {
+    position: absolute; top: 2px; left: 2px;
+    display: flex; flex-direction: column; gap: 2px;
+    z-index: 7;
+  }
+  .counter-badge {
+    border-radius: 8px; padding: 0;
+    font-size: 0.6em; font-weight: bold; color: #fff;
+    white-space: nowrap; cursor: default;
+    user-select: none;
+    border: 1px solid rgba(255,255,255,0.15);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    display: inline-flex; align-items: center; overflow: hidden;
+    background: rgba(0,160,80,0.92);
+  }
+  .counter-left, .counter-right {
+    padding: 2px 5px; cursor: pointer;
+  }
+  .counter-left:hover, .counter-right:hover {
+    background: rgba(255,255,255,0.2);
+  }
+  .counter-sep {
+    padding: 2px 1px; cursor: default; opacity: 0.7; pointer-events: none;
+  }
+
+  #footer-bar {
+    position: fixed; bottom: 0; left: 0; width: 100%; height: 72px;
+    background: #1a1a24;
+    border-top: 1px solid #2a2a3a;
+    color: #e0e0e0;
+    padding: 0 16px; box-sizing: border-box;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px;
+    z-index: 1000;
+  }
+
+  /* Life total — clickable number */
+  #life-total {
+    font-size: 28px; font-weight: 700; color: #e0e0e0;
+    cursor: pointer; min-width: 2.5ch; text-align: center;
+    padding: 2px 8px; border-radius: 8px;
+    transition: background 0.1s;
+    user-select: none;
+  }
+  #life-total:hover { background: #2a2a3a; }
+
+  /* Life popup */
+  #life-popup {
+    position: fixed; bottom: 76px; left: 12px;
+    background: #1a1a24; border: 1px solid #3a3a4a;
+    border-radius: 10px; padding: 12px 16px;
+    z-index: 2000; min-width: 210px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.8);
+    display: none;
+  }
+  #life-popup.open { display: block; }
+  .lp-title {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: #888; margin-bottom: 6px;
+  }
+  .lp-title:not(:first-child) { margin-top: 10px; }
+  .lp-row { display: flex; align-items: center; gap: 8px; }
+  .lp-life-val {
+    font-size: 28px; font-weight: 700; color: #e0e0e0;
+    min-width: 2.5ch; text-align: center;
+  }
+  .life-btn {
+    font-size: 1.1em; width: 28px; height: 28px;
+    cursor: pointer;
+    background: #2a2a3a; color: #e0e0e0;
+    border: 1px solid #3a3a4a; border-radius: 6px;
+    line-height: 1;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  .life-btn:hover { background: #3a3a4a; }
+  .lp-divider { border-top: 1px solid #2a2a3a; margin: 10px 0; }
+  .lp-cmd-row { display: flex; align-items: center; gap: 4px; margin: 3px 0; }
+  .cmd-player-name { font-size: 10px; color: #aaa; min-width: 18px; }
+  .cmd-btn {
+    width: 18px; height: 18px; cursor: pointer;
+    background: #2a2a3a; color: #e0e0e0; border: 1px solid #3a3a4a; border-radius: 3px;
+    font-size: 12px; line-height: 1; padding: 0;
+    font-family: 'Inter', system-ui, sans-serif; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .cmd-btn:hover { background: #3a3a4a; }
+  .cmd-val { min-width: 22px; text-align: center; font-size: 12px; font-weight: 700; color: #e0e0e0; }
+  .cmd-val.danger { color: #f55; }
+
+  #footer-left  { display: flex; align-items: center; }
+  #footer-cl    { display: flex; align-items: center; gap: 6px; }
+  #footer-center { display: flex; align-items: center; gap: 8px; }
+  #footer-cr    { display: flex; align-items: center; gap: 6px; }
+  #footer-right { display: flex; align-items: center; gap: 6px; }
+
+  #footer-cl button, #footer-cr button, #footer-right button, #deck-toggle-btn {
+    padding: 6px 14px; cursor: pointer;
+    background: #2a2a3a; color: #e0e0e0;
+    border: 1px solid #3a3a4a; border-radius: 6px;
+    font-size: 0.82em; white-space: nowrap;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  #footer-cl button:hover, #footer-cr button:hover,
+  #footer-right button:hover, #deck-toggle-btn:hover { background: #3a3a4a; }
+
+  /* Primary actions */
+  #draw, #mulligan-btn {
+    border-color: #c9a84c !important;
+    color: #c9a84c !important;
+  }
+  #draw:hover, #mulligan-btn:hover { background: #2a2414 !important; }
+
+  /* Turn display */
+  #turn-display {
+    font-size: 13px; font-weight: 600; color: #c9a84c;
+    min-width: 130px; text-align: center; white-space: nowrap;
+  }
+  #end-turn-btn { border-color: #c9a84c !important; color: #c9a84c !important; }
+  #end-turn-btn:hover { background: #2a2414 !important; }
+
+  /* Untap All button */
+  #untap-all-btn {
+    padding: 5px 12px; cursor: pointer;
+    background: #1a3a1a; color: #6fcf6f;
+    border: 1px solid #6fcf6f; border-radius: 6px;
+    font-size: 0.78em; white-space: nowrap;
+    font-family: "Inter", system-ui, sans-serif;
+  }
+  #untap-all-btn:hover { background: #2a4a2a; }
+
+  #dice-select {
+    padding: 5px; background: #2a2a3a; color: #e0e0e0;
+    border: 1px solid #3a3a4a; border-radius: 6px;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  #last-dice { font-size: 0.85em; color: #888; min-width: 52px; }
+
+  #chat-toggle-btn {
+    position: relative; padding: 6px 14px; cursor: pointer;
+    background: #2a2a3a; color: #e0e0e0;
+    border: 1px solid #3a3a4a; border-radius: 6px;
+    font-size: 0.82em; white-space: nowrap;
+    font-family: "Inter", system-ui, sans-serif;
+  }
+  #chat-toggle-btn:hover { background: #3a3a4a; }
+  #chat-unread-badge {
+    position: absolute; top: -5px; right: -5px;
+    background: #c9a84c; color: #000;
+    border-radius: 8px; padding: 1px 5px;
+    font-size: 10px; font-weight: bold; display: none;
+  }
+
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8);
+    z-index: 5000; display: none; align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: #1a1a24; color: #e0e0e0;
+    border: 1px solid #2a2a3a; border-radius: 12px;
+    padding: 24px; max-width: 500px; width: 90%;
+    max-height: 76vh; overflow-y: auto;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.8);
+    position: relative;
+  }
+  .modal-box h2 {
+    margin: 0 0 16px; color: #e0e0e0;
+    font-size: 1.1em; font-weight: 600;
+    border-bottom: 1px solid #2a2a3a; padding-bottom: 10px;
+  }
+  .modal-box input {
+    padding: 8px; background: #0f0f13; color: #e0e0e0;
+    border: 1px solid #2a2a3a; border-radius: 6px;
+    margin-bottom: 8px; width: 100%; box-sizing: border-box;
+    font-size: 0.9em; font-family: 'Inter', system-ui, sans-serif;
+  }
+  .modal-box input:focus { outline: none; border-color: #c9a84c; }
+  .modal-btn, .modal-close {
+    margin-top: 6px; margin-right: 6px;
+    padding: 7px 18px; cursor: pointer;
+    background: #2a2a3a; color: #e0e0e0;
+    border: 1px solid #3a3a4a; border-radius: 6px;
+    font-size: 0.9em; font-family: 'Inter', system-ui, sans-serif;
+  }
+  .modal-btn:hover, .modal-close:hover { background: #3a3a4a; }
+  .modal-box .ok  { color: #6fcf6f; margin: 6px 0; }
+  .modal-box .fail { color: #f66; margin: 6px 0; }
+  .modal-box ul { margin: 6px 0 12px; padding-left: 20px; font-size: 0.88em; }
+  .modal-box ul li { margin: 3px 0; }
+
+  .card-list {
+    list-style: none; padding: 0; margin: 6px 0;
+    max-height: 320px; overflow-y: auto;
+    border: 1px solid #2a2a3a; border-radius: 6px;
+  }
+  .card-list li {
+    padding: 8px 12px; cursor: pointer;
+    font-size: 0.9em; border-bottom: 1px solid #1e1e2a;
+    color: #e0e0e0;
+  }
+  .card-list li:last-child { border-bottom: none; }
+  .card-list li:hover { background: #252535; }
+
+  #card-preview {
+    position: fixed; bottom: 230px; right: 16px;
+    width: 300px; z-index: 4000; pointer-events: none;
+    display: none; border-radius: 10px; overflow: hidden;
+    box-shadow: 0 6px 32px rgba(0,0,0,0.85);
+  }
+  #card-preview img { width: 100%; height: auto; display: block; }
+  #card-preview .preview-token-box {
+    width: 100%; height: 418px;
+    background: linear-gradient(135deg, #2a2a3a, #1e1e2e);
+    border: 2px solid #3a3a4a; box-sizing: border-box;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px;
+  }
+  #card-preview .pt-name  { font-size: 1.4em; color: #e0e0e0; font-weight: bold; text-align: center; }
+  #card-preview .pt-stats { font-size: 2.2em; color: #c9a84c; font-weight: bold; }
+
+  #status-bar { cursor: pointer; user-select: none; }
+  #log-badge {
+    margin-left: auto; flex-shrink: 0;
+    background: rgba(201,168,76,0.15);
+    color: #c9a84c;
+    border: 1px solid rgba(201,168,76,0.3);
+    border-radius: 10px; padding: 1px 9px;
+    font-size: 11px; white-space: nowrap;
+  }
+  #log-panel {
+    position: fixed; top: 28px; left: 0; right: 0;
+    max-height: 0; overflow: hidden;
+    background: #1a1a24; border-bottom: 1px solid #2a2a3a;
+    z-index: 950; transition: max-height 0.25s ease;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.7);
+  }
+  #log-panel.open { max-height: 380px; }
+  #log-panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 16px; border-bottom: 1px solid #2a2a3a;
+    flex-shrink: 0;
+  }
+  #log-panel-header span { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.1em; }
+  #log-close-btn {
+    background: none; border: none; color: #888;
+    font-size: 13px; cursor: pointer; padding: 2px 8px;
+    border-radius: 4px; font-family: 'Inter', system-ui, sans-serif;
+  }
+  #log-close-btn:hover { color: #e0e0e0; background: #2a2a3a; }
+  #log-panel-inner {
+    padding: 6px 16px; height: 320px;
+    overflow-y: auto; box-sizing: border-box;
+    display: flex; flex-direction: column;
+  }
+  .log-entry {
+    font-size: 12px; color: #e0e0e0;
+    padding: 4px 0; border-bottom: 1px solid #1e1e2a;
+    display: flex; gap: 10px; flex-shrink: 0;
+  }
+  .log-entry:last-child { border-bottom: none; }
+  .log-time { color: #555; white-space: nowrap; flex-shrink: 0; font-family: monospace; font-size: 11px; }
+  #log-empty { color: #555; font-size: 12px; text-align: center; padding: 30px 0; width: 100%; }
+
+  /* Draw-phase prompt */
+  #draw-phase-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6);
+    z-index: 5500; display: none; align-items: center; justify-content: center;
+  }
+  #draw-phase-overlay.open { display: flex; }
+  #draw-phase-box {
+    background: #1a1a24; color: #e0e0e0;
+    border: 1px solid #2a2a3a; border-radius: 12px;
+    padding: 28px 32px; max-width: 280px; width: 90%;
+    text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,0.8);
+  }
+  #draw-phase-box h2 { margin: 0 0 10px; color: #c9a84c; font-size: 1em; font-weight: 600; }
+  #draw-phase-box p  { margin: 0 0 16px; font-size: 0.9em; color: #aaa; }
+  .dp-btn {
+    margin: 0 5px; padding: 7px 20px; cursor: pointer;
+    background: #2a2a3a; color: #e0e0e0;
+    border: 1px solid #3a3a4a; border-radius: 6px;
+    font-size: 0.88em; font-family: "Inter", system-ui, sans-serif;
+  }
+  .dp-btn:hover { background: #3a3a4a; }
+  .dp-btn.yes { border-color: #c9a84c; color: #c9a84c; }
+  .dp-btn.yes:hover { background: #2a2414; }
+
+  /* Chat panel */
+  #chat-panel {
+    position: fixed; top: 28px; right: 0; bottom: 52px;
+    width: 280px; background: #1a1a24;
+    border-left: 1px solid #2a2a3a;
+    z-index: 890; display: flex; flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+  }
+  #chat-panel.open { transform: translateX(0); }
+  #chat-header {
+    padding: 10px 14px; border-bottom: 1px solid #2a2a3a;
+    font-size: 11px; font-weight: 600; color: #888;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  #chat-close-btn {
+    background: none; border: none; color: #888;
+    font-size: 12px; cursor: pointer; padding: 2px 6px;
+    border-radius: 4px; font-family: "Inter", system-ui, sans-serif;
+  }
+  #chat-close-btn:hover { color: #e0e0e0; background: #2a2a3a; }
+  #chat-messages {
+    flex: 1; overflow-y: auto; padding: 8px 10px;
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  #chat-empty { color: #555; font-size: 12px; text-align: center; padding: 30px 0; }
+  .chat-msg {
+    font-size: 12px; color: #e0e0e0; padding: 5px 8px;
+    background: #0f0f13; border: 1px solid #1e1e2a; border-radius: 6px;
+  }
+  .chat-msg-time { font-size: 10px; color: #555; font-family: monospace; margin-bottom: 2px; }
+  .chat-msg-text { word-break: break-word; line-height: 1.4; }
+  #chat-input-area {
+    padding: 8px 10px; border-top: 1px solid #2a2a3a;
+    display: flex; gap: 6px; flex-shrink: 0;
+  }
+  #chat-input {
+    flex: 1; padding: 6px 8px;
+    background: #0f0f13; color: #e0e0e0;
+    border: 1px solid #2a2a3a; border-radius: 6px;
+    font-size: 12px; font-family: "Inter", system-ui, sans-serif; outline: none;
+  }
+  #chat-input:focus { border-color: #c9a84c; }
+  #chat-send-btn {
+    padding: 6px 10px; cursor: pointer;
+    background: #2a2a3a; color: #e0e0e0;
+    border: 1px solid #3a3a4a; border-radius: 6px;
+    font-size: 12px; font-family: "Inter", system-ui, sans-serif;
+  }
+  #chat-send-btn:hover { background: #3a3a4a; }
+
+  /* Zone Viewer Modal */
+  #zone-viewer-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85);
+    z-index: 5000; display: none; align-items: center; justify-content: center;
+  }
+  #zone-viewer-overlay.open { display: flex; }
+  #zone-viewer-box {
+    background: #1a1a24; color: #e0e0e0;
+    border: 1px solid #2a2a3a; border-radius: 12px;
+    padding: 20px; width: 90%; max-width: 760px;
+    max-height: 82vh; display: flex; flex-direction: column;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.8);
+  }
+  #zone-viewer-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px; flex-shrink: 0;
+    border-bottom: 1px solid #2a2a3a; padding-bottom: 10px;
+  }
+  #zone-viewer-title { font-size: 1em; font-weight: 600; color: #e0e0e0; }
+  #zone-viewer-close {
+    padding: 5px 14px; cursor: pointer;
+    background: #2a2a3a; color: #e0e0e0;
+    border: 1px solid #3a3a4a; border-radius: 6px;
+    font-size: 0.85em; font-family: "Inter", system-ui, sans-serif;
+  }
+  #zone-viewer-close:hover { background: #3a3a4a; }
+  #zone-viewer-grid {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    overflow-y: auto; padding: 4px;
+    align-content: flex-start; min-height: 80px;
+  }
+  .zv-card {
+    width: 100px; flex-shrink: 0;
+    border-radius: 8px; overflow: hidden;
+    border: 1px solid #3a3a4a; background: #0f0f13;
+    display: flex; flex-direction: column;
+  }
+  .zv-card img { width: 100%; height: auto; display: block; }
+  .zv-card .zv-name {
+    font-size: 0.62em; padding: 3px 4px;
+    color: #ccc; text-align: center;
+    overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  }
+  .zv-card:hover { border-color: #c9a84c; }
+
+  /* Scoop confirmation */
+  #scoop-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85); z-index: 7000;
+    display: none; align-items: center; justify-content: center;
+  }
+  #scoop-overlay.open { display: flex; }
+  #scoop-box {
+    background: #1a1a24; color: #e0e0e0;
+    border: 1px solid #922; border-radius: 12px;
+    padding: 28px 32px; max-width: 320px; width: 90%;
+    text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,0.8);
+  }
+  #scoop-box h2 { margin: 0 0 12px; color: #f55; font-size: 1.1em; font-weight: 700; }
+  #scoop-box p { margin: 0 0 20px; font-size: 0.9em; color: #aaa; }
+
+  /* Counter input modal */
+  #counter-input-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85); z-index: 7000;
+    display: none; align-items: center; justify-content: center;
+  }
+  #counter-input-overlay.open { display: flex; }
+  #counter-input-box {
+    background: #1a1a24; color: #e0e0e0;
+    border: 1px solid #2a2a3a; border-radius: 12px;
+    padding: 20px 24px; max-width: 280px; width: 90%;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.8);
+  }
+  #counter-input-box h2 { margin: 0 0 14px; font-size: 1em; font-weight: 600; }
+  #counter-input-box label { display: block; font-size: 0.82em; color: #aaa; margin-bottom: 3px; }
+  #counter-input-box input {
+    width: 100%; box-sizing: border-box; padding: 7px 8px;
+    background: #0f0f13; color: #e0e0e0; border: 1px solid #2a2a3a; border-radius: 6px;
+    font-size: 0.9em; font-family: 'Inter', system-ui, sans-serif; margin-bottom: 10px;
+  }
+  #counter-input-box input:focus { outline: none; border-color: #c9a84c; }
+
+  /* ── JOIN / LOBBY SCREEN ── */
+  #join-screen {
+    position: fixed; inset: 0;
+    background: #0f0f13;
+    z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #join-box {
+    background: #1a1a24; border: 1px solid #2a2a3a; border-radius: 16px;
+    padding: 32px 36px; width: 380px; max-width: 94vw;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.8);
+  }
+  #join-box h1 {
+    margin: 0 0 6px; font-size: 1.4em; font-weight: 700; color: #c9a84c;
+    text-align: center;
+  }
+  #join-box .subtitle {
+    text-align: center; font-size: 0.8em; color: #666; margin-bottom: 24px;
+  }
+  .join-label {
+    font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.08em;
+    color: #888; margin-bottom: 4px; margin-top: 14px;
+  }
+  .join-input {
+    width: 100%; box-sizing: border-box;
+    padding: 9px 12px; background: #0f0f13; color: #e0e0e0;
+    border: 1px solid #2a2a3a; border-radius: 8px;
+    font-size: 0.95em; font-family: 'Inter', system-ui, sans-serif;
+    outline: none;
+  }
+  .join-input:focus { border-color: #c9a84c; }
+  .join-row { display: flex; gap: 8px; margin-top: 14px; }
+  .join-btn {
+    flex: 1; padding: 10px; cursor: pointer;
+    background: #c9a84c; color: #000;
+    border: none; border-radius: 8px;
+    font-size: 0.9em; font-weight: 700;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  .join-btn:hover { background: #d9b85c; }
+  .join-btn.secondary {
+    background: #2a2a3a; color: #e0e0e0;
+    border: 1px solid #3a3a4a;
+  }
+  .join-btn.secondary:hover { background: #3a3a4a; }
+  #join-error { color: #f55; font-size: 0.82em; margin-top: 8px; text-align: center; min-height: 18px; }
+  #format-select {
+    width: 100%; box-sizing: border-box;
+    padding: 9px 12px; background: #0f0f13; color: #e0e0e0;
+    border: 1px solid #2a2a3a; border-radius: 8px;
+    font-size: 0.88em; font-family: 'Inter', system-ui, sans-serif;
+    outline: none; cursor: pointer;
+  }
+  #format-select:focus { border-color: #c9a84c; }
+  .join-tabs { display: flex; gap: 0; margin-bottom: 20px; border-radius: 8px; overflow: hidden; border: 1px solid #2a2a3a; }
+  .join-tab {
+    flex: 1; padding: 8px; cursor: pointer; text-align: center;
+    font-size: 0.85em; font-weight: 600; background: #0f0f13; color: #888;
+    border: none; font-family: 'Inter', system-ui, sans-serif;
+  }
+  .join-tab.active { background: #2a2a3a; color: #c9a84c; }
+  #room-code-display {
+    text-align: center; font-size: 2em; font-weight: 800; letter-spacing: 0.2em;
+    color: #c9a84c; font-family: monospace; margin: 12px 0;
+    background: #0f0f13; border-radius: 8px; padding: 10px;
+    border: 1px solid rgba(201,168,76,0.3);
+  }
+
+  /* ── LOBBY SCREEN ── */
+  #lobby-screen {
+    position: fixed; inset: 0;
+    background: #0f0f13;
+    z-index: 9998;
+    display: none; align-items: center; justify-content: center;
+  }
+  #lobby-screen.open { display: flex; }
+  #lobby-box {
+    background: #1a1a24; border: 1px solid #2a2a3a; border-radius: 16px;
+    padding: 28px 32px; width: 420px; max-width: 94vw;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.8);
+  }
+  #lobby-box h2 { margin: 0 0 4px; color: #e0e0e0; font-size: 1.1em; }
+  #lobby-code-display {
+    font-size: 1.6em; font-weight: 800; color: #c9a84c;
+    letter-spacing: 0.2em; font-family: monospace;
+    background: #0f0f13; border-radius: 8px; padding: 8px 12px;
+    border: 1px solid rgba(201,168,76,0.3); display: inline-block; margin: 8px 0;
+  }
+  #lobby-players { margin: 16px 0; }
+  .lobby-player {
+    padding: 8px 12px; background: #0f0f13; border-radius: 6px;
+    margin-bottom: 6px; font-size: 0.9em; display: flex; align-items: center; gap: 8px;
+    border: 1px solid #2a2a3a;
+  }
+  .lobby-player .seat-badge {
+    background: #2a2a3a; color: #c9a84c; border-radius: 4px;
+    padding: 1px 7px; font-size: 0.78em; font-weight: 700;
+  }
+  .lobby-player.me .seat-badge { background: rgba(201,168,76,0.2); }
+  #lobby-waiting { color: #555; font-size: 0.85em; margin-top: 4px; font-style: italic; }
+  #lobby-start-btn {
+    width: 100%; padding: 11px; cursor: pointer;
+    background: #c9a84c; color: #000; border: none; border-radius: 8px;
+    font-size: 0.95em; font-weight: 700; font-family: 'Inter', system-ui, sans-serif;
+    margin-top: 16px; display: none;
+  }
+  #lobby-start-btn.show { display: block; }
+  #lobby-start-btn:hover { background: #d9b85c; }
+  #lobby-spectator-note { color: #888; font-size: 0.8em; margin-top: 8px; text-align: center; }
+
+  /* ── OPPONENT PANEL (2-player top bar) ── */
+  #opponent-panel {
+    position: fixed; top: 28px; left: 0; right: 0;
+    height: calc(50vh - 28px); background: #0d0d16;
+    border-bottom: 2px solid #1e1e30;
+    display: none; z-index: 500;
+    flex-direction: row; gap: 0;
+  }
+  #opponent-panel.show { display: flex; }
+  .opp-zone {
+    flex: 1; padding: 6px 10px; border-right: 1px solid #1e1e2a;
+    display: flex; flex-direction: column; gap: 3px; overflow: hidden;
+    font-size: 11px; min-height: 0;
+  }
+  .opp-zone:last-child { border-right: none; }
+  .opp-name {
+    font-weight: 700; color: #c9a84c; font-size: 12px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .opp-life { font-size: 20px; font-weight: 700; color: #e0e0e0; }
+  .opp-counts { color: #888; font-size: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .opp-bf {
+    flex: 1; overflow: hidden;
+    background: radial-gradient(ellipse at center, #0a140a 0%, #0d0d16 100%);
+    border-right: 1px solid #1e1e2a; padding: 4px 6px;
+    display: flex; flex-wrap: wrap; align-items: flex-start;
+    align-content: flex-start; gap: 2px; min-height: 0;
+  }
+  .opp-card-mini {
+    width: 26px; height: 36px; border-radius: 3px;
+    background: #1e3a1e; border: 1px solid #2a4a2a;
+    display: inline-block; flex-shrink: 0;
+    overflow: hidden;
+  }
+  .opp-card-mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .opp-card-mini.tapped { transform: rotate(15deg); opacity: 0.75; }
+  .opp-hand-cards {
+    display: flex; gap: 1px; flex-wrap: wrap; align-items: center;
+  }
+  .opp-hand-card {
+    width: 18px; height: 26px; border-radius: 2px;
+    background: #1a3a1a; border: 1px solid rgba(201,168,76,0.3);
+    display: inline-block; flex-shrink: 0;
+  }
+
+  /* ── 4-PLAYER QUADRANT ── */
+  #quad-panel {
+    position: fixed; inset: 0;
+    display: none; z-index: 9990;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+  #quad-panel.show { display: grid; }
+  .quad-seat {
+    background: #0f0f13; border: 1px solid #1a1a24;
+    position: relative; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .quad-seat-header {
+    padding: 4px 10px; background: #1a1a24; border-bottom: 1px solid #2a2a3a;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px; flex-shrink: 0;
+  }
+  .quad-seat-name { font-weight: 700; color: #c9a84c; }
+  .quad-seat-life { color: #e0e0e0; font-weight: 700; font-size: 14px; }
+  .quad-seat-counts { color: #888; font-size: 10px; }
+  .quad-bf {
+    flex: 1; background: radial-gradient(ellipse at center, #0a140a 0%, #0f0f13 100%);
+    overflow: hidden; padding: 4px; display: flex; flex-wrap: wrap;
+    align-items: flex-start; align-content: flex-start; gap: 2px;
+  }
+  .quad-card {
+    width: 40px; height: 56px; border-radius: 4px;
+    background: #1e3a1e; border: 1px solid #2a4a2a;
+    overflow: hidden; display: inline-block; flex-shrink: 0;
+  }
+  .quad-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .quad-card.tapped { transform: rotate(15deg); opacity: 0.8; }
+  .quad-footer {
+    padding: 4px 8px; background: #1a1a24; border-top: 1px solid #2a2a3a;
+    display: flex; gap: 6px; align-items: center; font-size: 10px; color: #888;
+    flex-shrink: 0;
+  }
+  /* Your quadrant gets a highlight */
+  .quad-seat.my-seat { border-color: rgba(201,168,76,0.4); }
+  .quad-seat.my-seat .quad-seat-header { background: #1e1a0a; }
+
+  /* ── MULTIPLAYER STATUS BAR EXTENSION ── */
+  #mp-status {
+    display: none; align-items: center; gap: 8px;
+    margin-left: 12px; padding-left: 12px;
+    border-left: 1px solid #2a2a3a;
+    font-size: 11px; color: #888;
+  }
+  #mp-status.show { display: flex; }
+  #mp-room-badge {
+    background: rgba(201,168,76,0.15); color: #c9a84c;
+    border: 1px solid rgba(201,168,76,0.3); border-radius: 8px;
+    padding: 1px 8px; font-family: monospace; font-weight: 700;
+    letter-spacing: 0.1em;
+  }
+  #mp-players-count { color: #888; }
+  #mp-disconnect-btn {
+    background: none; border: 1px solid #3a3a4a; border-radius: 4px;
+    color: #888; font-size: 10px; padding: 1px 6px; cursor: pointer;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  #mp-disconnect-btn:hover { color: #f55; border-color: #f55; }
+
+  /* ── PRIVATE LOG PANEL ── */
+  #private-log-panel {
+    position: fixed; top: 28px; right: 0; bottom: 52px;
+    width: 240px; background: #1a1a24;
+    border-left: 1px solid #2a2a3a;
+    z-index: 880; display: flex; flex-direction: column;
+    transform: translateX(100%); transition: transform 0.25s ease;
+  }
+  #private-log-panel.open { transform: translateX(0); }
+  #private-log-header {
+    padding: 8px 12px; border-bottom: 1px solid #2a2a3a;
+    font-size: 11px; font-weight: 600; color: #888;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  #private-log-close {
+    background: none; border: none; color: #888;
+    font-size: 12px; cursor: pointer; padding: 2px 6px; border-radius: 4px;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  #private-log-close:hover { color: #e0e0e0; background: #2a2a3a; }
+  #private-log-msgs {
+    flex: 1; overflow-y: auto; padding: 6px 8px;
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .priv-entry {
+    font-size: 10px; padding: 3px 6px;
+    background: #0f0f13; border: 1px solid #1e1e2a; border-radius: 4px;
+    color: #aaa; line-height: 1.4;
+  }
+  .priv-entry.mine { border-color: rgba(201,168,76,0.3); color: #c9a84c; }
+  .priv-entry-time { color: #444; font-family: monospace; font-size: 9px; }
+  #private-log-toggle-btn {
+    padding: 6px 14px; cursor: pointer;
+    background: #2a2a3a; color: #e0e0e0;
+    border: 1px solid #3a3a4a; border-radius: 6px;
+    font-size: 0.82em; white-space: nowrap;
+    font-family: "Inter", system-ui, sans-serif;
+    display: none;
+  }
+  #private-log-toggle-btn.show { display: inline-block; }
+  #private-log-toggle-btn:hover { background: #3a3a4a; }
+</style>
+</head>
+<body>
+<div id="status-bar"><span id="status-text">Ready.</span><span id="log-badge" style="display:none">● 0 actions</span></div>
+
+<div id="log-panel">
+  <div id="log-panel-header"><span>Game Log</span><button id="log-close-btn">&#x2715; Close</button></div>
+  <div id="log-panel-inner"><div id="log-empty">No actions yet.</div></div>
+</div>
+
+<div id="deck-panel">
+  <textarea id="deck-input" placeholder="Paste decklist – one card per line.&#10;Examples:&#10;  10 Plains&#10;  4 Lightning Bolt (M11) 141&#10;  1 Command Tower"></textarea>
+  <div id="deck-panel-btns">
+    <button id="import-btn">Import Deck</button>
+    <button id="clear-btn">Clear</button>
+  </div>
+</div>
+
+<div id="layout">
+  <div id="battlefield" class="zone battlefield">
+    <div id="library" class="zone library"><div class="zone-label">Library</div></div>
+    <div id="commander" class="zone commander"><div class="zone-label">Commander</div></div>
+    <div id="graveyard" class="zone graveyard">
+      <div class="zone-label">Graveyard <span class="zone-count-badge" id="gy-count">0</span></div>
+    </div>
+    <div id="exile" class="zone exile">
+      <div class="zone-label">Exile <span class="zone-count-badge" id="ex-count">0</span></div>
+    </div>
+  </div>
+</div>
+<div id="hand" class="zone hand"><div class="zone-label">Hand</div></div>
+
+<!-- Life popup -->
+<div id="life-popup">
+  <div class="lp-title" style="margin-top:0">Life Total</div>
+  <div class="lp-row">
+    <button class="life-btn" id="life-down">−</button>
+    <span class="lp-life-val" id="life-popup-val">40</span>
+    <button class="life-btn" id="life-up">+</button>
+  </div>
+  <div class="lp-divider"></div>
+  <div class="lp-title">Commander Damage</div>
+  <div class="lp-cmd-row">
+    <span class="cmd-player-name">P1</span>
+    <button class="cmd-btn" data-player="0" data-dir="-1">−</button>
+    <span class="cmd-val" id="cmd-val-0">0</span>
+    <button class="cmd-btn" data-player="0" data-dir="1">+</button>
+  </div>
+  <div class="lp-cmd-row">
+    <span class="cmd-player-name">P2</span>
+    <button class="cmd-btn" data-player="1" data-dir="-1">−</button>
+    <span class="cmd-val" id="cmd-val-1">0</span>
+    <button class="cmd-btn" data-player="1" data-dir="1">+</button>
+  </div>
+  <div class="lp-cmd-row">
+    <span class="cmd-player-name">P3</span>
+    <button class="cmd-btn" data-player="2" data-dir="-1">−</button>
+    <span class="cmd-val" id="cmd-val-2">0</span>
+    <button class="cmd-btn" data-player="2" data-dir="1">+</button>
+  </div>
+  <div class="lp-divider"></div>
+  <div class="lp-title">Poison Counters</div>
+  <div class="lp-cmd-row">
+    <button class="cmd-btn" id="poison-down">−</button>
+    <span class="cmd-val" id="poison-val">0</span>
+    <button class="cmd-btn" id="poison-up">+</button>
+  </div>
+</div>
+
+<div id="footer-bar">
+  <div id="footer-left">
+    <span id="life-total" title="Click for life, commander damage &amp; poison">40</span>
+  </div>
+  <div id="footer-cl">
+    <button id="draw">Draw</button>
+    <button id="mulligan-btn">Mulligan</button>
+  </div>
+  <div id="footer-center">
+    <span id="turn-display">Turn 1 · Untap</span>
+    <button id="untap-all-btn" style="display:none">Untap All</button>
+  </div>
+  <div id="footer-cr">
+    <button id="end-turn-btn">End Turn</button>
+    <button id="scoop-btn">🏳 Scoop</button>
+  </div>
+  <div id="footer-right">
+    <select id="dice-select">
+      <option value="d4">d4</option>
+      <option value="d6">d6</option>
+      <option value="d8">d8</option>
+      <option value="d10">d10</option>
+      <option value="d12">d12</option>
+      <option value="d20" selected>d20</option>
+      <option value="d100">d100</option>
+    </select>
+    <button id="roll-dice" title="Roll dice">🎲</button>
+    <span id="last-dice">—</span>
+    <button id="token-btn">Token</button>
+    <button id="chat-toggle-btn">💬 Chat<span id="chat-unread-badge"></span></button>
+    <button id="deck-toggle-btn">⊞ Deck</button>
+  </div>
+</div>
+
+<!-- Zone Viewer Modal -->
+<div id="zone-viewer-overlay">
+  <div id="zone-viewer-box">
+    <div id="zone-viewer-header">
+      <span id="zone-viewer-title">Zone</span>
+      <button id="zone-viewer-close">Close</button>
+    </div>
+    <div id="zone-viewer-grid"></div>
+  </div>
+</div>
+
+<!-- Summary modal -->
+<div id="summary-overlay" class="modal-overlay">
+  <div class="modal-box">
+    <h2>Deck Load Summary</h2>
+    <div id="summary-content"></div>
+    <button class="modal-close" id="summary-close">Continue</button>
+  </div>
+</div>
+
+<!-- Commander picker modal -->
+<div id="commander-overlay" class="modal-overlay">
+  <div class="modal-box">
+    <h2>Select Commander</h2>
+    <input type="text" id="commander-search" placeholder="Search cards...">
+    <ul class="card-list" id="commander-list"></ul>
+    <button class="modal-close" id="commander-skip">Skip</button>
+  </div>
+</div>
+
+<!-- Token creator modal -->
+<div id="token-overlay" class="modal-overlay">
+  <div class="modal-box">
+    <h2>Create Token</h2>
+    <input type="text" id="token-name-input" placeholder="Name (e.g. Goblin, Soldier)">
+    <input type="text" id="token-pt-input" placeholder="Power/Toughness (e.g. 1/1)">
+    <div>
+      <button class="modal-btn" id="token-to-hand">Add to Hand</button>
+      <button class="modal-btn" id="token-to-bf">Add to Battlefield</button>
+      <button class="modal-close" id="token-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Search library modal -->
+<div id="search-lib-overlay" class="modal-overlay">
+  <div class="modal-box">
+    <h2>Search Library</h2>
+    <input type="text" id="search-lib-input" placeholder="Filter...">
+    <ul class="card-list" id="search-lib-list"></ul>
+    <button class="modal-close" id="search-lib-close">Close</button>
+  </div>
+</div>
+
+<!-- Card zoom preview -->
+<div id="card-preview">
+  <img id="preview-img" src="" alt="" style="display:block;">
+  <div class="preview-token-box" id="preview-token-box" style="display:none;">
+    <div class="pt-name" id="preview-token-name"></div>
+    <div class="pt-stats" id="preview-token-pt"></div>
+  </div>
+</div>
+
+<!-- Draw-phase prompt -->
+<div id="draw-phase-overlay">
+  <div id="draw-phase-box">
+    <h2>Draw Phase</h2>
+    <p>Draw a card?</p>
+    <button class="dp-btn yes" id="draw-phase-yes">Yes</button>
+    <button class="dp-btn" id="draw-phase-no">No</button>
+  </div>
+</div>
+
+<!-- Chat panel -->
+<div id="chat-panel">
+  <div id="chat-header">
+    <span>Chat</span>
+    <button id="chat-close-btn">&#x2715; Close</button>
+  </div>
+  <div id="chat-messages"><div id="chat-empty">No messages yet.</div></div>
+  <div id="chat-input-area">
+    <input type="text" id="chat-input" placeholder="Type a message…" autocomplete="off">
+    <button id="chat-send-btn">Send</button>
+  </div>
+</div>
+
+<!-- Scoop confirmation -->
+<div id="scoop-overlay">
+  <div id="scoop-box">
+    <h2>🏳 Scoop</h2>
+    <p>Are you sure you want to scoop?<br>All cards return to library. Life resets to 40.</p>
+    <button class="modal-btn" id="scoop-yes">Yes, scoop</button>
+    <button class="modal-btn" id="scoop-no">No, keep playing</button>
+  </div>
+</div>
+
+<!-- Counter input modal -->
+<div id="counter-input-overlay">
+  <div id="counter-input-box">
+    <h2>Add Counter</h2>
+    <label>Type</label>
+    <input type="text" id="counter-type-input" placeholder="e.g. +1/+1, loyalty, charge">
+    <div>
+      <button class="modal-btn" id="counter-add-confirm">Add</button>
+      <button class="modal-btn" id="counter-add-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="//"+window.location.hostname+":3001/socket.io/socket.io.js"></script>
+<script>
+  // ─────────────────────────────────────────────
+  //  MULTIPLAYER SYSTEM
+  // ─────────────────────────────────────────────
+  let socket = null;
+  let myRoom = null;
+  let mySeat = -1;
+  let myName = '';
+  let myFormat = '2p';
+  let isSpectator = false;
+  let isHost = false;
+  let mpPlayers = [];  // { name, seat }
+  let opponentStates = {}; // seat -> public state
+  let gameStarted = false;
+
+  // ── Join screen tab switching ──
+  function switchJoinTab(tab) {
+    document.getElementById('join-create-panel').style.display = tab==='create' ? '' : 'none';
+    document.getElementById('join-join-panel').style.display   = tab==='join'   ? '' : 'none';
+    document.querySelectorAll('.join-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    document.getElementById('join-error').textContent = '';
+  }
+
+
+
+  function connectSocket() {
+    if (socket) return;
+    // Try to connect to backend on same host port 3001
+    socket = io();
+
+    socket.on('connect', () => {
+      console.log('Socket connected:', socket.id);
+    });
+    socket.on('connect_error', (err) => {
+      document.getElementById('join-error').textContent = 'Cannot connect to server: ' + err.message;
+      socket = null;
+    });
+    socket.on('roomCreated', onRoomCreated);
+    socket.on('joinedRoom',  onJoinedRoom);
+    socket.on('joinError',   onJoinError);
+    socket.on('playerJoined', onPlayerJoined);
+    socket.on('playerLeft',   onPlayerLeft);
+    socket.on('gameAction',   onGameAction);
+    socket.on('privateAction', onPrivateAction);
+    socket.on('chat',         onChatMsg);
+    socket.on('stateUpdate',  onStateUpdate);
+    socket.on('gameLogHistory', onGameLogHistory);
+    socket.on('gameStart',    onGameStart);
+  }
+
+  function createRoom() {
+    const name = document.getElementById('create-name').value.trim();
+    if (!name) { document.getElementById('join-error').textContent = 'Enter your name.'; return; }
+    myName = name;
+    myFormat = document.getElementById('format-select').value;
+    connectSocket();
+    if (!socket) return;
+    document.getElementById('join-error').textContent = 'Connecting...';
+    socket.emit('createRoom', { playerName: name, format: myFormat });
+  }
+
+  function joinRoom(spectator) {
+    const name = document.getElementById('join-name').value.trim();
+    const code = document.getElementById('join-code').value.trim().toUpperCase();
+    if (!name) { document.getElementById('join-error').textContent = 'Enter your name.'; return; }
+    if (!code || code.length !== 6) { document.getElementById('join-error').textContent = 'Enter a valid 6-character room code.'; return; }
+    myName = name;
+    document.getElementById('join-error').textContent = 'Connecting...';
+    connectSocket();
+    // Wait for socket to connect then emit
+    const tryJoin = (attempts) => {
+      if (socket && socket.connected) {
+        document.getElementById('join-error').textContent = 'Joining...';
+        socket.emit('joinRoom', { playerName: name, code, spectator });
+      } else if (attempts > 0) {
+        setTimeout(() => tryJoin(attempts - 1), 200);
+      } else {
+        document.getElementById('join-error').textContent = 'Cannot connect to server. Is the game server running?';
+      }
+    };
+    setTimeout(() => tryJoin(10), 100);
+  }
+
+  // ── Socket event handlers ──
+  function onRoomCreated(data) {
+    myRoom  = data.code;
+    mySeat  = data.seat;
+    myFormat = data.format;
+    isHost  = true;
+    mpPlayers = data.players || [{ name: myName, seat: 0 }];
+    document.getElementById('join-screen').style.display = 'none';
+    showLobby();
+  }
+
+  function onJoinedRoom(data) {
+    myRoom  = data.code;
+    mySeat  = data.seat;
+    myFormat = data.format;
+    isSpectator = !!data.spectator;
+    mpPlayers = data.players || [];
+    if (data.publicStates) {
+      opponentStates = {};
+      Object.values(data.publicStates).forEach(s => { if (s.seat !== mySeat) opponentStates[s.seat] = s; });
+    }
+    document.getElementById('join-screen').style.display = 'none';
+    showLobby();
+  }
+
+  function onJoinError(data) {
+    document.getElementById('join-error').textContent = data.message || 'Error joining room.';
+  }
+
+  function onPlayerJoined(data) {
+    if (!mpPlayers.find(p => p.seat === data.seat)) mpPlayers.push(data);
+    updateLobbyUI();
+    addLog('\u2192 ' + data.name + ' joined the room (Seat ' + (data.seat+1) + ')');
+    if (!isSpectator) {
+      addPrivateLog('Player joined: ' + data.name, false);
+    }
+  }
+
+  function onPlayerLeft(data) {
+    mpPlayers = mpPlayers.filter(p => p.seat !== data.seat);
+    delete opponentStates[data.seat];
+    updateLobbyUI();
+    addLog('\u2190 ' + data.name + ' left the room');
+    renderOpponents();
+  }
+
+  function onGameAction(data) {
+    const msg = data.msg || data.message || (data.playerName + ': ' + (data.type || 'action'));
+    // Add to shared log
+    const now = new Date(data.ts || Date.now());
+    const hh = String(now.getHours()).padStart(2,'0');
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    if (data.seat !== mySeat) { // Don't double-log own actions
+      const logInnerEl = document.getElementById('log-panel-inner');
+      const logEmptyElMP = document.getElementById('log-empty');
+      if (logEmptyElMP) logEmptyElMP.style.display = 'none';
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      const timeSpan = document.createElement('span');
+      timeSpan.className = 'log-time';
+      timeSpan.textContent = hh + ':' + mm;
+      const msgSpan = document.createElement('span');
+      msgSpan.textContent = msg;
+      msgSpan.style.color = getSeatColor(data.seat);
+      entry.appendChild(timeSpan); entry.appendChild(msgSpan);
+      logInnerEl.insertBefore(entry, logInnerEl.firstChild);
+    }
+  }
+
+  function onPrivateAction(data) {
+    // Only we see this
+    addPrivateLog(data.msg || data.message || data.type, true);
+  }
+
+  function onChatMsg(data) {
+    // Handled by existing chat system but with multiplayer source
+    addMpChatMsg(data.playerName, data.message, data.seat);
+  }
+
+  function onStateUpdate(data) {
+    if (data.seat === mySeat) return;
+    opponentStates[data.seat] = data;
+    renderOpponents();
+    if (myFormat === '4p') renderQuad();
+  }
+
+  function onGameLogHistory(entries) {
+    // Could replay entries - just log count for now
+    console.log('Received', entries.length, 'historical log entries');
+  }
+
+  function onGameStart(data) {
+    startGame(true);
+  }
+
+  // ── Lobby UI ──
+  function showLobby() {
+    const lobbyEl = document.getElementById('lobby-screen');
+    lobbyEl.classList.add('open');
+    document.getElementById('lobby-code-display').textContent = myRoom;
+    if (isSpectator) {
+      document.getElementById('lobby-spectator-note').style.display = 'block';
+    }
+    updateLobbyUI();
+  }
+
+  function updateLobbyUI() {
+    const playersEl = document.getElementById('lobby-players');
+    playersEl.innerHTML = '';
+    const maxPlayers = myFormat === '4p' ? 4 : 2;
+    for (let s = 0; s < maxPlayers; s++) {
+      const p = mpPlayers.find(x => x.seat === s);
+      const div = document.createElement('div');
+      div.className = 'lobby-player' + (s === mySeat ? ' me' : '');
+      div.innerHTML = '<span class="seat-badge">Seat ' + (s+1) + '</span> ' +
+        (p ? '<strong>' + escHtml(p.name) + '</strong>' + (s === mySeat ? ' (you)' : '') : '<em style="color:#555">Empty</em>');
+      playersEl.appendChild(div);
+    }
+    // Show start button only to host when room has >=2 players
+    const startBtn = document.getElementById('lobby-start-btn');
+    if (isHost && !isSpectator && mpPlayers.length >= 2) {
+      startBtn.classList.add('show');
+    } else {
+      startBtn.classList.remove('show');
+    }
+    const waitEl = document.getElementById('lobby-waiting');
+    waitEl.textContent = mpPlayers.length >= maxPlayers
+      ? 'Room is full! Host can start the game.'
+      : 'Waiting for players... (' + mpPlayers.length + '/' + maxPlayers + ')';
+  }
+
+  function startGame(fromServer) {
+    if (gameStarted) return; // prevent double-trigger
+    if (!fromServer && isHost && socket) {
+      socket.emit('startGame'); // server will broadcast 'gameStart' to all players
+    }
+    document.getElementById('lobby-screen').classList.remove('open');
+    gameStarted = true;
+    initMultiplayerLayout();
+  }
+
+  // ── Multiplayer layout init ──
+  function initMultiplayerLayout() {
+    // Show status bar MP section
+    const mpStatus = document.getElementById('mp-status');
+    if (mpStatus) {
+      mpStatus.classList.add('show');
+      document.getElementById('mp-room-badge').textContent = myRoom;
+      document.getElementById('mp-players-count').textContent = mpPlayers.length + ' players';
+    }
+
+    // Show private log button
+    const privLogBtn = document.getElementById('private-log-toggle-btn');
+    if (privLogBtn) privLogBtn.classList.add('show');
+
+    if (myFormat === '4p') {
+      initQuadLayout();
+    } else {
+      initTwoPlayerLayout();
+    }
+
+    // Start broadcasting our state every 5 seconds
+    setInterval(broadcastMyState, 5000);
+  }
+
+  function initTwoPlayerLayout() {
+    const oppPanel = document.getElementById('opponent-panel');
+    oppPanel.classList.add('show');
+    document.body.classList.add('mp-active');
+    // Adjust main layout top to make room
+    const layoutEl = document.getElementById('layout');
+    if (layoutEl) layoutEl.style.top = '148px';
+    const handEl = document.getElementById('hand');
+    if (handEl) handEl.style.bottom = '72px';
+    renderOpponents();
+  }
+
+  function renderOpponents() {
+    if (myFormat === '4p') return; // handled by quad
+    const oppPanel = document.getElementById('opponent-panel');
+    oppPanel.innerHTML = '';
+    const opponents = mpPlayers.filter(p => p.seat !== mySeat);
+    if (opponents.length === 0) {
+      oppPanel.innerHTML = '<div style="padding:8px 16px;color:#555;font-size:11px;align-self:center">Waiting for opponents...</div>';
+      return;
+    }
+    opponents.forEach(opp => {
+      const state = opponentStates[opp.seat] || {};
+      const div = document.createElement('div');
+      div.className = 'opp-zone';
+      div.dataset.seat = opp.seat;
+
+      // Info section
+      const info = document.createElement('div');
+      info.innerHTML = '<div class="opp-name">' + escHtml(opp.name) + '</div>' +
+        '<div class="opp-life">' + (state.life !== undefined ? state.life : '\u2014') + '</div>' +
+        '<div class="opp-counts">' +
+          '<span>\ud83d\udcda ' + (state.libraryCount !== undefined ? state.libraryCount : '?') + '</span>' +
+          '<span>\ud83e\udeb6 ' + (state.graveyardCount || 0) + '</span>' +
+          '<span>\ud83c\udf0c ' + (state.exileCount || 0) + '</span>' +
+          '<span>\u270b ' + (state.handCount || 0) + '</span>' +
+        '</div>';
+      div.appendChild(info);
+
+      // Hand backs
+      const handEl2 = document.createElement('div');
+      handEl2.className = 'opp-hand-cards';
+      const hc = state.handCount || 0;
+      for (let i = 0; i < Math.min(hc, 12); i++) {
+        const card = document.createElement('div');
+        card.className = 'opp-hand-card';
+        handEl2.appendChild(card);
+      }
+      div.appendChild(handEl2);
+
+      oppPanel.appendChild(div);
+
+      // Battlefield section
+      const bf = document.createElement('div');
+      bf.className = 'opp-bf';
+      bf.dataset.seat = opp.seat;
+      if (state.battlefield && state.battlefield.length) {
+        state.battlefield.forEach(card => {
+          const mini = document.createElement('div');
+          mini.className = 'opp-card-mini' + (card.tapped ? ' tapped' : '');
+          if (card.imgUrl) {
+            const img = document.createElement('img');
+            img.src = card.imgUrl;
+            mini.appendChild(img);
+          }
+          bf.appendChild(mini);
+        });
+      }
+      oppPanel.appendChild(bf);
+    });
+  }
+
+  // ── 4-Player Quadrant Layout ──
+  function initQuadLayout() {
+    const quad = document.getElementById('quad-panel');
+    quad.classList.add('show');
+    renderQuad();
+  }
+
+  function renderQuad() {
+    const quad = document.getElementById('quad-panel');
+    quad.innerHTML = '';
+    const maxPlayers = 4;
+    for (let s = 0; s < maxPlayers; s++) {
+      const p = mpPlayers.find(x => x.seat === s);
+      const state = (s === mySeat) ? getMyPublicState() : (opponentStates[s] || {});
+      const isMe = s === mySeat;
+
+      const seat = document.createElement('div');
+      seat.className = 'quad-seat' + (isMe ? ' my-seat' : '');
+
+      const header = document.createElement('div');
+      header.className = 'quad-seat-header';
+      header.innerHTML =
+        '<span class="quad-seat-name">' + (p ? escHtml(p.name) : 'Seat ' + (s+1)) + (isMe ? ' (you)' : '') + '</span>' +
+        '<span class="quad-seat-life">' + (state.life !== undefined ? '\u2764\ufe0f ' + state.life : '\u2014') + '</span>';
+      seat.appendChild(header);
+
+      const bf = document.createElement('div');
+      bf.className = 'quad-bf';
+      if (state.battlefield && state.battlefield.length) {
+        state.battlefield.forEach(card => {
+          const c = document.createElement('div');
+          c.className = 'quad-card' + (card.tapped ? ' tapped' : '');
+          if (card.imgUrl) {
+            const img = document.createElement('img');
+            img.src = card.imgUrl;
+            c.appendChild(img);
+          }
+          bf.appendChild(c);
+        });
+      } else if (isMe) {
+        bf.innerHTML = '<div style="color:#555;font-size:10px;padding:4px">Your battlefield (drag cards here)</div>';
+      }
+      seat.appendChild(bf);
+
+      const footer = document.createElement('div');
+      footer.className = 'quad-footer';
+      footer.innerHTML =
+        '<span>\ud83d\udcda ' + (state.libraryCount || '?') + '</span>' +
+        '<span>\u270b ' + (state.handCount || 0) + '</span>' +
+        '<span>\ud83e\udeb6 ' + (state.graveyardCount || 0) + '</span>';
+      seat.appendChild(footer);
+
+      quad.appendChild(seat);
+    }
+  }
+
+  // ── State broadcasting ──
+  function getMyPublicState() {
+    // Only cards directly on battlefield, not in sub-zones (library, graveyard, exile, commander, hand)
+    const subZoneIds = ['library','commander','graveyard','exile','hand'];
+    const bfCards = Array.from(battlefield ? battlefield.querySelectorAll('.card') : [])
+      .filter(c => !subZoneIds.some(id => document.getElementById(id)?.contains(c)))
+      .map(c => ({
+      name: c.dataset.name,
+      imgUrl: c.dataset.front,
+      tapped: c.classList.contains('tapped')
+    }));
+    return {
+      life: life,
+      handCount: handDiv ? handDiv.querySelectorAll('.card').length : 0,
+      libraryCount: libraryDiv ? libraryDiv.querySelectorAll('.card').length : 0,
+      graveyardCount: graveyardDiv ? graveyardDiv.querySelectorAll('.card').length : 0,
+      exileCount: exileDiv ? exileDiv.querySelectorAll('.card').length : 0,
+      battlefield: bfCards
+    };
+  }
+
+  function broadcastMyState() {
+    if (!socket || !myRoom || isSpectator) return;
+    socket.emit('stateUpdate', getMyPublicState());
+  }
+
+  // ── Patch addLog: sync logs to all players + broadcast state on every action ──
+  const _origAddLog = addLog;
+  window.addLog = function(msg) {
+    _origAddLog(msg); // write to local log as normal
+    if (socket && myRoom && !isSpectator) {
+      // Emit to server — server will io.to(room).emit back to all players
+      socket.emit('gameAction', {
+        type: 'action',
+        msg: myName + ': ' + msg,
+        publicMsg: myName + ': ' + msg
+      });
+      // Immediately broadcast state so opponents see battlefield changes
+      broadcastMyState();
+    }
+  };
+
+  function mpEmitAction(type, msg) {
+    if (!socket || !myRoom || isSpectator) return;
+    socket.emit('gameAction', { type, msg: myName + ': ' + msg, publicMsg: myName + ': ' + msg });
+    broadcastMyState();
+  }
+
+  function mpEmitPrivate(type, privateMsg, publicMsg) {
+    if (!socket || !myRoom || isSpectator) return;
+    socket.emit('privateAction', { type, msg: privateMsg, publicMsg: myName + ': ' + publicMsg });
+    broadcastMyState();
+  }
+
+  // ── Private log ──
+  function addPrivateLog(msg, isMine) {
+    const container = document.getElementById('private-log-msgs');
+    if (!container) return;
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2,'0');
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    const div = document.createElement('div');
+    div.className = 'priv-entry' + (isMine ? ' mine' : '');
+    div.innerHTML = '<span class="priv-entry-time">' + hh + ':' + mm + '</span> ' + escHtml(msg);
+    container.insertBefore(div, container.firstChild);
+  }
+
+  // ── Chat: extend existing chat with multiplayer ──
+  function addMpChatMsg(playerName, message, seat) {
+    const chatMsgs = document.getElementById('chat-messages');
+    const chatEmpty = document.getElementById('chat-empty');
+    if (chatEmpty) chatEmpty.style.display = 'none';
+    const msg = document.createElement('div');
+    msg.className = 'chat-msg';
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2,'0');
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    msg.innerHTML = '<div class="chat-msg-time" style="color:' + getSeatColor(seat) + '">' + hh + ':' + mm + ' \u00b7 ' + escHtml(playerName) + '</div>' +
+      '<div class="chat-msg-text">' + escHtml(message) + '</div>';
+    chatMsgs.appendChild(msg);
+    chatMsgs.scrollTop = chatMsgs.scrollHeight;
+    // Unread badge
+    const chatPanel = document.getElementById('chat-panel');
+    if (!chatPanel.classList.contains('open')) {
+      const badge = document.getElementById('chat-unread-badge');
+      if (badge) { badge.style.display = ''; const n = parseInt(badge.textContent||'0')+1; badge.textContent = n; }
+    }
+  }
+
+  // Override send chat to use socket in multiplayer
+  const origChatSend = document.getElementById('chat-send-btn');
+  if (origChatSend) {
+    origChatSend._origClick = origChatSend.onclick;
+    origChatSend.addEventListener('click', function(e) {
+      if (socket && myRoom) {
+        e.stopImmediatePropagation();
+        const input = document.getElementById('chat-input');
+        const msg = input.value.trim();
+        if (!msg) return;
+        socket.emit('chat', { message: msg });
+        input.value = '';
+        // Show our own message locally
+        addMpChatMsg(myName, msg, mySeat);
+      }
+    }, true);
+  }
+
+  // ── Helpers ──
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function getSeatColor(seat) {
+    return ['#c9a84c','#6fcf6f','#6fb3cf','#cf6f6f'][seat] || '#888';
+  }
+
+  // ── MP Status bar elements ──
+  // Inject MP status into status bar
+  (function() {
+    const sb = document.getElementById('status-bar');
+    if (!sb) return;
+    const mpEl = document.createElement('div');
+    mpEl.id = 'mp-status';
+    mpEl.innerHTML = '<span id="mp-room-badge"></span><span id="mp-players-count"></span>' +
+      '<button id="mp-disconnect-btn" onclick="if(socket){socket.disconnect();socket=null;} location.reload()">\u2715 Leave</button>';
+    sb.appendChild(mpEl);
+
+    // Private log button removed
+    document.getElementById('private-log-close').addEventListener('click', () => {
+      document.getElementById('private-log-panel').classList.remove('open');
+    });
+  })();
+
+  // Patch life change to broadcast
+  const _origUpdateLife = updateLife;
+  window.updateLife = function(newVal) {
+    _origUpdateLife(newVal);
+    mpEmitAction('life', 'life \u2192 ' + newVal);
+    broadcastMyState();
+  };
+
+  // Patch draw to use private action
+  const origDrawBtn = document.getElementById('draw');
+  if (origDrawBtn) {
+    origDrawBtn.addEventListener('click', function() {
+      // After the original draw fires, emit private action
+      setTimeout(() => {
+        const topCard = handDiv ? handDiv.querySelectorAll('.card') : [];
+        const lastName = topCard.length ? topCard[topCard.length-1].dataset.name : 'a card';
+        mpEmitPrivate('draw', 'Drew: ' + lastName, 'drew a card');
+        broadcastMyState();
+      }, 100);
+    });
+  }
+
+  // Patch end turn to broadcast
+  const origEndTurn = document.getElementById('end-turn-btn');
+  if (origEndTurn) {
+    origEndTurn.addEventListener('click', function() {
+      setTimeout(() => {
+        const turnDisp = document.getElementById('turn-display');
+        mpEmitAction('endTurn', 'ended turn \u00b7 ' + (turnDisp ? turnDisp.textContent : ''));
+        broadcastMyState();
+      }, 50);
+    });
+  }
+
+  // Patch dice roll to broadcast
+  const origRollBtn = document.getElementById('roll-dice');
+  if (origRollBtn) {
+    origRollBtn.addEventListener('click', function() {
+      setTimeout(() => {
+        const result = document.getElementById('last-dice').textContent;
+        mpEmitAction('dice', 'rolled ' + document.getElementById('dice-select').value + ' \u2192 ' + result);
+      }, 50);
+    });
+  }
+
+  // ── Show join screen on load ──
+  // Already showing from HTML - no action needed
+  // (the #join-screen div is visible by default)
+
+</script>
+<script>
+  const CARD_BACK = 'https://back.scryfall.io/small/back.jpg';
+
+  const statusBar      = document.getElementById('status-bar');
+  const deckPanel      = document.getElementById('deck-panel');
+  const deckToggleBtn  = document.getElementById('deck-toggle-btn');
+  const deckInput      = document.getElementById('deck-input');
+  const importBtn      = document.getElementById('import-btn');
+  const clearBtn       = document.getElementById('clear-btn');
+  const rollBtn        = document.getElementById('roll-dice');
+  const diceSelect     = document.getElementById('dice-select');
+  const lifeEl         = document.getElementById('life-total');
+  const lifePopupVal   = document.getElementById('life-popup-val');
+  const diceResult     = document.getElementById('last-dice');
+  const drawBtn        = document.getElementById('draw');
+  const mulliganBtn    = document.getElementById('mulligan-btn');
+  const tokenBtn       = document.getElementById('token-btn');
+  const battlefield    = document.getElementById('battlefield');
+  const handDiv        = document.getElementById('hand');
+  const libraryDiv     = document.getElementById('library');
+  const commanderDiv   = document.getElementById('commander');
+  const graveyardDiv   = document.getElementById('graveyard');
+  const exileDiv       = document.getElementById('exile');
+  const cardPreview    = document.getElementById('card-preview');
+  const previewImg     = document.getElementById('preview-img');
+  const previewTokenBox= document.getElementById('preview-token-box');
+  const gyCount        = document.getElementById('gy-count');
+  const exCount        = document.getElementById('ex-count');
+  const layout         = document.getElementById('layout');
+  const untapAllBtn    = document.getElementById('untap-all-btn');
+  const lifePopup      = document.getElementById('life-popup');
+
+  let life = 40;
+  let currentMenu = null;
+  let draggedCard = null;
+  let dragOffsetX = 0;
+  let dragOffsetY = 0;
+  let mulliganCount = 0;
+  let pendingCommander = false;
+  let poison = 0;
+
+  const setStatus = msg => { document.getElementById('status-text').textContent = msg; };
+
+  // --- Game Log ---
+  const gameLog  = [];
+  const logBadge = document.getElementById('log-badge');
+  const logPanel = document.getElementById('log-panel');
+  const logInner = document.getElementById('log-panel-inner');
+  const logEmptyEl = document.getElementById('log-empty');
+
+  document.getElementById('log-close-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    logPanel.classList.remove('open');
+  });
+  statusBar.addEventListener('click', () => logPanel.classList.toggle('open'));
+
+  function addLog(msg) {
+    const now = new Date();
+    const hh  = String(now.getHours()).padStart(2, '0');
+    const mm  = String(now.getMinutes()).padStart(2, '0');
+    gameLog.push({ time: hh + ':' + mm, msg });
+    if (logEmptyEl) logEmptyEl.style.display = 'none';
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'log-time';
+    timeSpan.textContent = hh + ':' + mm;
+    const msgSpan = document.createElement('span');
+    msgSpan.textContent = msg;
+    entry.appendChild(timeSpan);
+    entry.appendChild(msgSpan);
+    logInner.insertBefore(entry, logInner.firstChild);
+    logBadge.style.display = '';
+    logBadge.textContent = '● ' + gameLog.length + ' action' + (gameLog.length !== 1 ? 's' : '');
+  }
+
+  function updateLibraryCount() {
+    const count = libraryDiv.querySelectorAll('.card').length;
+    const label = libraryDiv.querySelector('.zone-label');
+    if (label) label.innerHTML = 'Library<br><span style="font-size:20px;font-weight:700;color:#fff;">' + count + '</span>';
+  }
+
+  function updateZoneCounts() {
+    gyCount.textContent = graveyardDiv.querySelectorAll('.card').length;
+    exCount.textContent = exileDiv.querySelectorAll('.card').length;
+    updateLibraryCount();
+  }
+
+  // --- Layout ---
+  function adjustLayout() {
+    layout.style.top = deckPanel.classList.contains('open')
+      ? (28 + deckPanel.offsetHeight) + 'px' : '28px';
+  }
+  deckToggleBtn.addEventListener('click', () => {
+    deckPanel.classList.toggle('open');
+    setTimeout(adjustLayout, 0);
+  });
+  clearBtn.addEventListener('click', () => { deckInput.value = ''; });
+
+  // --- Life popup ---
+  lifeEl.addEventListener('click', e => {
+    e.stopPropagation();
+    lifePopup.classList.toggle('open');
+  });
+  document.addEventListener('click', e => {
+    if (lifePopup.classList.contains('open') &&
+        !lifePopup.contains(e.target) && e.target !== lifeEl) {
+      lifePopup.classList.remove('open');
+    }
+  });
+
+  function updateLife(newVal) {
+    const prev = life;
+    life = newVal;
+    lifeEl.textContent = life;
+    lifePopupVal.textContent = life;
+    setStatus('Life: ' + life);
+    addLog('Life: ' + prev + ' → ' + life);
+  }
+  document.getElementById('life-up').addEventListener('click',   () => updateLife(life + 1));
+  document.getElementById('life-down').addEventListener('click', () => updateLife(life - 1));
+
+  // --- Commander Damage (in popup) ---
+  const cmdDmg = [0, 0, 0];
+  document.querySelectorAll('.cmd-btn[data-player]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const p   = parseInt(btn.dataset.player, 10);
+      const dir = parseInt(btn.dataset.dir, 10);
+      cmdDmg[p] = Math.max(0, cmdDmg[p] + dir);
+      const el = document.getElementById('cmd-val-' + p);
+      el.textContent = cmdDmg[p];
+      el.classList.toggle('danger', cmdDmg[p] >= 21);
+      const labels = ['P1', 'P2', 'P3'];
+      addLog('CMD DMG from ' + labels[p] + ': ' + cmdDmg[p]);
+      setStatus('CMD DMG ' + labels[p] + ': ' + cmdDmg[p]);
+    });
+  });
+
+  // --- Poison (in popup) ---
+  document.getElementById('poison-up').addEventListener('click', () => {
+    poison++;
+    document.getElementById('poison-val').textContent = poison;
+    addLog('Poison: ' + poison);
+    setStatus('Poison counters: ' + poison);
+  });
+  document.getElementById('poison-down').addEventListener('click', () => {
+    poison = Math.max(0, poison - 1);
+    document.getElementById('poison-val').textContent = poison;
+    addLog('Poison: ' + poison);
+    setStatus('Poison counters: ' + poison);
+  });
+
+  // --- Card face flip ---
+  function setCardFace(cardEl, faceUp) {
+    if (cardEl.classList.contains('token')) return;
+    const img = cardEl.querySelector('img');
+    if (!img) return;
+    img.src = faceUp ? (cardEl.dataset.front || img.src) : CARD_BACK;
+  }
+
+  // --- Drag and drop ---
+  ['battlefield','hand','library','commander','graveyard','exile'].forEach(zoneId => {
+    const zone = document.getElementById(zoneId);
+    zone.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (zoneId !== 'battlefield') e.stopPropagation();
+      e.dataTransfer.dropEffect = 'move';
+      zone.classList.add('drag-over');
+    });
+    zone.addEventListener('dragleave', e => {
+      if (!zone.contains(e.relatedTarget)) zone.classList.remove('drag-over');
+    });
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      if (zoneId !== 'battlefield') e.stopPropagation();
+      zone.classList.remove('drag-over');
+      if (!draggedCard) return;
+      if (zoneId === 'battlefield') {
+        const rect = battlefield.getBoundingClientRect();
+        const x = Math.max(0, e.clientX - rect.left - dragOffsetX);
+        const y = Math.max(0, e.clientY - rect.top  - dragOffsetY);
+        draggedCard.style.cssText += ';position:absolute;margin:0;left:'+x+'px;top:'+y+'px';
+        battlefield.appendChild(draggedCard);
+        setCardFace(draggedCard, true);
+      } else {
+        draggedCard.style.position = '';
+        draggedCard.style.left = '';
+        draggedCard.style.top = '';
+        draggedCard.style.margin = '';
+        zone.appendChild(draggedCard);
+        setCardFace(draggedCard, zoneId !== 'library');
+      }
+      setStatus('Moved ' + draggedCard.dataset.name + ' → ' + zoneId);
+      addLog('Moved ' + draggedCard.dataset.name + ' → ' + zoneId);
+      updateZoneCounts();
+      draggedCard = null;
+      // Broadcast state in multiplayer
+      if (socket && myRoom && !isSpectator) {
+        broadcastMyState();
+      }
+    });
+  });
+
+  // Right-click on library background → zone menu
+  libraryDiv.addEventListener('contextmenu', e => {
+    if (e.target.closest('.card')) return;
+    e.preventDefault();
+    showZoneMenu(e);
+  });
+
+  // Right-click on graveyard background → graveyard zone menu
+  graveyardDiv.addEventListener('contextmenu', e => {
+    if (e.target.closest('.card')) return;
+    e.preventDefault();
+    hideMenu();
+    const menu = buildMenuEl();
+    addMenuItem(menu, 'Shuffle All to Library', () => {
+      const cards = Array.from(graveyardDiv.querySelectorAll('.card'));
+      if (!cards.length) { setStatus('Graveyard is empty.'); return; }
+      cards.forEach(c => { libraryDiv.appendChild(c); setCardFace(c, false); });
+      shuffleDOMCards(libraryDiv);
+      updateZoneCounts();
+      addLog('Shuffled graveyard (' + cards.length + ' cards) into library');
+      setStatus('Graveyard shuffled into library.');
+    });
+    positionMenu(menu, e);
+  });
+
+  function showZoneMenu(e) {
+    hideMenu();
+    const menu = buildMenuEl();
+    addMenuItem(menu, 'Search Library', () => openSearchLibrary());
+    addMenuItem(menu, 'Shuffle Library', () => shuffleLibrary());
+    addMenuSep(menu);
+    addMenuItem(menu, 'Draw X cards', () => {
+      const n = parseInt(prompt('How many cards to draw?', '3'), 10);
+      if (!n || n < 1) return;
+      let moved = 0;
+      for (let i = 0; i < n; i++) {
+        const top = libraryDiv.querySelector('.card');
+        if (!top) break;
+        moveCard(top, 'hand'); moved++;
+      }
+      addLog('Drew ' + moved + ' card' + (moved !== 1 ? 's' : '') + ' from library');
+      setStatus('Drew ' + moved + ' cards.');
+    });
+    addMenuItem(menu, 'Mill X cards', () => {
+      const n = parseInt(prompt('How many cards to mill?', '3'), 10);
+      if (!n || n < 1) return;
+      let moved = 0;
+      for (let i = 0; i < n; i++) {
+        const top = libraryDiv.querySelector('.card');
+        if (!top) break;
+        moveCard(top, 'graveyard'); moved++;
+      }
+      addLog('Milled ' + moved + ' card' + (moved !== 1 ? 's' : ''));
+      setStatus('Milled ' + moved + ' cards.');
+    });
+    addMenuItem(menu, 'Exile Top X', () => {
+      const n = parseInt(prompt('How many cards to exile?', '3'), 10);
+      if (!n || n < 1) return;
+      let moved = 0;
+      for (let i = 0; i < n; i++) {
+        const top = libraryDiv.querySelector('.card');
+        if (!top) break;
+        moveCard(top, 'exile'); moved++;
+      }
+      addLog('Exiled top ' + moved + ' card' + (moved !== 1 ? 's' : '') + ' from library');
+      setStatus('Exiled ' + moved + ' cards.');
+    });
+    positionMenu(menu, e);
+  }
+
+  // Click library/graveyard/exile -> open zone viewer
+  [libraryDiv, graveyardDiv, exileDiv].forEach(zone => {
+    zone.addEventListener('click', () => openZoneViewer(zone.id));
+  });
+
+  // Global click: hide menu
+  document.addEventListener('click', e => {
+    if (currentMenu && !currentMenu.contains(e.target)) hideMenu();
+  });
+
+  // --- Decklist parser ---
+  function parseDecklist(raw) {
+    const entries = [];
+    for (const line of raw.split('\n').map(l => l.trim()).filter(l => l)) {
+      const m = line.match(/^(\d+)\s+(.+)$/);
+      const count = m ? parseInt(m[1], 10) : 1;
+      const name = (m ? m[2] : line).replace(/\s*\([^)]+\)\s*\d*$/, '').trim();
+      if (name) entries.push({ name, count });
+    }
+    return entries;
+  }
+
+  // --- Import deck ---
+  importBtn.addEventListener('click', async () => {
+    const raw = deckInput.value.trim();
+    if (!raw) { setStatus('Enter a decklist first.'); return; }
+    const entries = parseDecklist(raw);
+    if (!entries.length) { setStatus('No valid cards found.'); return; }
+    const total = entries.reduce((s, e) => s + e.count, 0);
+    setStatus('Parsed ' + entries.length + ' unique names (' + total + ' total) – fetching…');
+    deckPanel.classList.remove('open');
+    adjustLayout();
+    libraryDiv.innerHTML = '<div class="zone-label">Library</div>';
+    mulliganCount = 0;
+    const loaded = {}, failed = [];
+    for (const { name, count } of entries) {
+      setStatus('Fetching: ' + name + '…');
+      try {
+        const data = await fetchCardData(name);
+        for (let i = 0; i < count; i++) createCardElement(data, libraryDiv, true);
+        loaded[name] = (loaded[name] || 0) + count;
+      await new Promise(r => setTimeout(r, 150));
+      } catch (err) {
+        failed.push({ name, count, reason: err.message });
+      }
+    }
+    const loadedTotal = Object.values(loaded).reduce((s, v) => s + v, 0);
+    setStatus('Deck loaded: ' + loadedTotal + ' cards.');
+    updateLibraryCount();
+    showSummary(loaded, failed, total);
+    pendingCommander = true;
+  });
+
+  async function fetchCardData(name, retries = 3) {
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        const res = await fetch('https://api.scryfall.com/cards/named?exact=' + encodeURIComponent(name));
+        if (res.status === 429) {
+          await new Promise(r => setTimeout(r, 500 + attempt * 500));
+          continue;
+        }
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.details || 'Not found');
+        return data;
+      } catch(e) {
+        if (attempt === retries - 1) throw e;
+        await new Promise(r => setTimeout(r, 300));
+      }
+    }
+  }
+
+  // --- Card creation ---
+  function createCardElement(data, targetEl, faceDown) {
+    const faces = (data.card_faces && data.card_faces[0].image_uris) ? data.card_faces : [data];
+    faces.forEach(face => {
+      const imgUrl = face.image_uris?.normal || face.image_uris?.png
+                   || data.image_uris?.normal || data.image_uris?.png || '';
+      if (!imgUrl) return;
+      const wrapper = document.createElement('div');
+      wrapper.className = 'card';
+      wrapper.dataset.name = face.name || data.name;
+      wrapper.dataset.front = imgUrl;
+      const img = document.createElement('img');
+      img.src = faceDown ? CARD_BACK : imgUrl;
+      img.alt = wrapper.dataset.name;
+      wrapper.appendChild(img);
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'name';
+      nameDiv.textContent = wrapper.dataset.name;
+      wrapper.appendChild(nameDiv);
+      attachCardBehavior(wrapper);
+      targetEl.appendChild(wrapper);
+    });
+  }
+
+  function buildTokenEl(name, pt) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'card token';
+    wrapper.dataset.name = name || 'Token';
+    wrapper.dataset.pt = pt || '';
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'token-name';
+    nameDiv.textContent = name || 'Token';
+    wrapper.appendChild(nameDiv);
+    if (pt) {
+      const ptDiv = document.createElement('div');
+      ptDiv.className = 'token-pt';
+      ptDiv.textContent = pt;
+      wrapper.appendChild(ptDiv);
+    }
+    attachCardBehavior(wrapper);
+    return wrapper;
+  }
+
+  function attachCardBehavior(wrapper) {
+    wrapper.draggable = true;
+    wrapper.addEventListener('dragstart', e => {
+      draggedCard = wrapper;
+      const rect = wrapper.getBoundingClientRect();
+      dragOffsetX = e.clientX - rect.left;
+      dragOffsetY = e.clientY - rect.top;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', wrapper.dataset.name);
+    });
+    wrapper.addEventListener('dragend', () => { draggedCard = null; });
+    wrapper.addEventListener('dblclick', e => {
+      if (!wrapper.closest('#battlefield')) return;
+      e.stopPropagation();
+      const wasTapped = wrapper.style.transform === 'rotate(90deg)';
+      wrapper.style.transform = wasTapped ? '' : 'rotate(90deg)';
+      wrapper.classList.toggle('tapped', !wasTapped);
+      addLog((wasTapped ? 'Untapped: ' : 'Tapped: ') + wrapper.dataset.name);
+      // Broadcast state in multiplayer
+      if (socket && myRoom && !isSpectator) {
+        broadcastMyState();
+      }
+    });
+    wrapper.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      showContextMenu(e, wrapper);
+    });
+    wrapper.addEventListener('mouseenter', () => showPreview(wrapper));
+    wrapper.addEventListener('mouseleave', hidePreview);
+  }
+
+  // --- Zoom preview ---
+  function showPreview(cardEl) {
+    const inLibrary = cardEl.closest('#library');
+    if (cardEl.classList.contains('token')) {
+      previewImg.style.display = 'none';
+      previewTokenBox.style.display = 'flex';
+      document.getElementById('preview-token-name').textContent = cardEl.dataset.name;
+      document.getElementById('preview-token-pt').textContent = cardEl.dataset.pt || '';
+    } else {
+      previewImg.style.display = 'block';
+      previewTokenBox.style.display = 'none';
+      previewImg.src = inLibrary ? CARD_BACK : (cardEl.dataset.front || '');
+    }
+    cardPreview.style.display = 'block';
+  }
+  function hidePreview() { cardPreview.style.display = 'none'; }
+
+  // --- Summary modal ---
+  function showSummary(loaded, failed, total) {
+    const lt = Object.values(loaded).reduce((s,v) => s+v, 0);
+    let html = '<p class="ok">✓ ' + lt + ' of ' + total + ' cards loaded.</p><ul>';
+    for (const [n, c] of Object.entries(loaded)) html += '<li>' + n + (c > 1 ? ' ×'+c : '') + '</li>';
+    html += '</ul>';
+    if (failed.length) {
+      const ft = failed.reduce((s,f) => s+f.count, 0);
+      html += '<p class="fail">✗ ' + ft + ' failed:</p><ul>';
+      for (const {name, count, reason} of failed)
+        html += '<li>' + name + (count > 1 ? ' ×'+count : '') + ' — <em>' + reason + '</em></li>';
+      html += '</ul>';
+    }
+    document.getElementById('summary-content').innerHTML = html;
+    document.getElementById('summary-overlay').classList.add('open');
+  }
+
+  function closeSummary() {
+    document.getElementById('summary-overlay').classList.remove('open');
+    if (pendingCommander) { pendingCommander = false; openCommanderPicker(); }
+  }
+  document.getElementById('summary-close').addEventListener('click', closeSummary);
+  document.getElementById('summary-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('summary-overlay')) closeSummary();
+  });
+
+  // --- Commander picker ---
+  const commanderOverlay = document.getElementById('commander-overlay');
+  const commanderSearch  = document.getElementById('commander-search');
+  const commanderList    = document.getElementById('commander-list');
+
+  function openCommanderPicker() {
+    const cards = Array.from(libraryDiv.querySelectorAll('.card'));
+    if (!cards.length) return;
+    commanderSearch.value = '';
+    renderCommanderList([...new Set(cards.map(c => c.dataset.name))].sort());
+    commanderOverlay.classList.add('open');
+    setTimeout(() => commanderSearch.focus(), 50);
+  }
+
+  function renderCommanderList(names) {
+    commanderList.innerHTML = '';
+    names.forEach(name => {
+      const li = document.createElement('li');
+      li.textContent = name;
+      li.addEventListener('click', () => {
+        const card = libraryDiv.querySelector('.card[data-name="' + CSS.escape(name) + '"]');
+        if (card) moveCard(card, 'commander');
+        setStatus(name + ' set as Commander.');
+        commanderOverlay.classList.remove('open');
+      });
+      commanderList.appendChild(li);
+    });
+  }
+
+  commanderSearch.addEventListener('input', () => {
+    const q = commanderSearch.value.toLowerCase();
+    const all = [...new Set(Array.from(libraryDiv.querySelectorAll('.card')).map(c => c.dataset.name))].sort();
+    renderCommanderList(all.filter(n => n.toLowerCase().includes(q)));
+  });
+  document.getElementById('commander-skip').addEventListener('click', () => commanderOverlay.classList.remove('open'));
+  commanderOverlay.addEventListener('click', e => { if (e.target === commanderOverlay) commanderOverlay.classList.remove('open'); });
+
+  // --- Token creator ---
+  const tokenOverlay = document.getElementById('token-overlay');
+  tokenBtn.addEventListener('click', () => {
+    document.getElementById('token-name-input').value = '';
+    document.getElementById('token-pt-input').value = '';
+    tokenOverlay.classList.add('open');
+    setTimeout(() => document.getElementById('token-name-input').focus(), 50);
+  });
+
+  function doCreateToken(zoneId) {
+    const name = document.getElementById('token-name-input').value.trim() || 'Token';
+    const pt   = document.getElementById('token-pt-input').value.trim();
+    const el = buildTokenEl(name, pt);
+    const target = document.getElementById(zoneId);
+    if (zoneId === 'battlefield') {
+      const rect = battlefield.getBoundingClientRect();
+      el.style.position = 'absolute';
+      el.style.left = Math.max(0, rect.width/2 - 37) + 'px';
+      el.style.top  = Math.max(0, rect.height/2 - 52) + 'px';
+      el.style.margin = '0';
+    }
+    target.appendChild(el);
+    tokenOverlay.classList.remove('open');
+    setStatus('Token created: ' + name + (pt ? ' (' + pt + ')' : ''));
+    addLog('Token created: ' + name + (pt ? ' ' + pt : '') + ' → ' + zoneId);
+    updateZoneCounts();
+  }
+
+  document.getElementById('token-to-hand').addEventListener('click', () => doCreateToken('hand'));
+  document.getElementById('token-to-bf').addEventListener('click',   () => doCreateToken('battlefield'));
+  document.getElementById('token-cancel').addEventListener('click',  () => tokenOverlay.classList.remove('open'));
+  tokenOverlay.addEventListener('click', e => { if (e.target === tokenOverlay) tokenOverlay.classList.remove('open'); });
+
+  // --- Search library ---
+  const searchLibOverlay = document.getElementById('search-lib-overlay');
+  const searchLibInput   = document.getElementById('search-lib-input');
+  const searchLibList    = document.getElementById('search-lib-list');
+
+  function openSearchLibrary() {
+    searchLibInput.value = '';
+    renderSearchList('');
+    searchLibOverlay.classList.add('open');
+    setTimeout(() => searchLibInput.focus(), 50);
+  }
+
+  function renderSearchList(filter) {
+    searchLibList.innerHTML = '';
+    const cards = Array.from(libraryDiv.querySelectorAll('.card'));
+    const filtered = filter ? cards.filter(c => c.dataset.name.toLowerCase().includes(filter.toLowerCase())) : cards;
+    if (!filtered.length) {
+      const li = document.createElement('li');
+      li.textContent = 'No cards found.';
+      li.style.color = '#888';
+      searchLibList.appendChild(li);
+      return;
+    }
+    filtered.forEach(card => {
+      const li = document.createElement('li');
+      li.textContent = card.dataset.name;
+      li.addEventListener('click', () => {
+        moveCard(card, 'hand');
+        searchLibOverlay.classList.remove('open');
+        setStatus(card.dataset.name + ' → hand (library search)');
+        addLog('Library search: ' + card.dataset.name + ' → hand');
+      });
+      searchLibList.appendChild(li);
+    });
+  }
+
+  searchLibInput.addEventListener('input', () => renderSearchList(searchLibInput.value));
+  document.getElementById('search-lib-close').addEventListener('click', () => searchLibOverlay.classList.remove('open'));
+  searchLibOverlay.addEventListener('click', e => { if (e.target === searchLibOverlay) searchLibOverlay.classList.remove('open'); });
+
+  // --- Context menu helpers ---
+  function buildMenuEl() {
+    const menu = document.createElement('div');
+    menu.id = 'ctx-menu';
+    menu.style.cssText = 'position:fixed;background:#1a1a24;color:#e0e0e0;border:1px solid #2a2a3a;border-radius:8px;padding:4px 0;z-index:6000;min-width:185px;box-shadow:0 8px 24px rgba(0,0,0,0.7);font-family:Inter,system-ui,sans-serif;';
+    return menu;
+  }
+  function addMenuItem(menu, label, action) {
+    const itm = document.createElement('div');
+    itm.textContent = label;
+    itm.style.cssText = 'padding:7px 14px;cursor:pointer;white-space:nowrap;font-size:0.88em;color:#e0e0e0;';
+    itm.addEventListener('mouseenter', () => itm.style.background = '#252535');
+    itm.addEventListener('mouseleave', () => itm.style.background = '');
+    itm.addEventListener('click', () => { action(); hideMenu(); });
+    menu.appendChild(itm);
+  }
+  function addMenuSep(menu) {
+    const hr = document.createElement('hr');
+    hr.style.cssText = 'border:none;border-top:1px solid #2a2a3a;margin:4px 0;';
+    menu.appendChild(hr);
+  }
+  function positionMenu(menu, e) {
+    const x = Math.min(e.clientX + 2, window.innerWidth  - 195);
+    const y = Math.min(e.clientY + 2, window.innerHeight - 350);
+    menu.style.left = x + 'px';
+    menu.style.top  = y + 'px';
+    document.body.appendChild(menu);
+    currentMenu = menu;
+  }
+  function hideMenu() {
+    if (currentMenu) { currentMenu.remove(); currentMenu = null; }
+  }
+
+  // --- Context menu on cards ---
+  function showContextMenu(e, cardEl) {
+    hideMenu();
+    const menu = buildMenuEl();
+    const name = cardEl.dataset.name;
+
+    if (!cardEl.classList.contains('token')) {
+      addMenuItem(menu, 'Tap / Untap', () => {
+        const wasTapped1 = cardEl.style.transform === 'rotate(90deg)';
+        cardEl.style.transform = wasTapped1 ? '' : 'rotate(90deg)';
+        addLog((wasTapped1 ? 'Untapped: ' : 'Tapped: ') + cardEl.dataset.name);
+      });
+    }
+
+    addMenuItem(menu, 'Move to Battlefield', () => moveCard(cardEl, 'battlefield'));
+    addMenuItem(menu, 'Move to Hand',        () => moveCard(cardEl, 'hand'));
+    addMenuItem(menu, 'Send to Graveyard',   () => moveCard(cardEl, 'graveyard'));
+    addMenuItem(menu, 'Send to Exile',       () => moveCard(cardEl, 'exile'));
+    addMenuItem(menu, 'Move to Commander',   () => moveCard(cardEl, 'commander'));
+
+    addMenuSep(menu);
+    addMenuItem(menu, 'Add Counter', () => openCounterInput(cardEl));
+
+    // Remove options for existing counters
+    const countersData = getCountersData(cardEl);
+    const counterTypes = Object.keys(countersData);
+    if (counterTypes.length > 0) {
+      counterTypes.forEach(type => {
+        const info = countersData[type];
+        const lv = (info && typeof info === 'object' && info.left  !== undefined) ? info.left  : 0;
+        const rv = (info && typeof info === 'object' && info.right !== undefined) ? info.right : 0;
+        addMenuItem(menu, 'Remove Counter (' + lv + '/' + rv + ')', () => {
+          removeCounterType(cardEl, type);
+        });
+      });
+    }
+
+    if (!cardEl.classList.contains('token')) {
+      addMenuSep(menu);
+      addMenuItem(menu, 'Copy Card', () => copyCardToBattlefield(cardEl));
+      addMenuItem(menu, 'Reveal to All', () => alert('Revealed: ' + name));
+    }
+
+    const parentId = cardEl.parentElement && cardEl.parentElement.id;
+    if (parentId === 'library' || parentId === 'graveyard' || parentId === 'exile') {
+      addMenuSep(menu);
+      addMenuItem(menu, 'To top of library', () => {
+        const label = libraryDiv.querySelector('.zone-label');
+        libraryDiv.insertBefore(cardEl, label ? label.nextSibling : libraryDiv.firstChild);
+        setCardFace(cardEl, false);
+        setStatus(name + ' → top of library');
+        addLog(name + ' → top of library');
+        updateZoneCounts();
+      });
+      addMenuItem(menu, 'To bottom of library', () => {
+        libraryDiv.appendChild(cardEl);
+        setCardFace(cardEl, false);
+        setStatus(name + ' → bottom of library');
+        addLog(name + ' → bottom of library');
+        updateZoneCounts();
+      });
+      addMenuItem(menu, 'Shuffle into library', () => {
+        libraryDiv.appendChild(cardEl);
+        setCardFace(cardEl, false);
+        shuffleDOMCards(libraryDiv);
+        setStatus('Shuffled into library.');
+        addLog(name + ' shuffled into library');
+        updateZoneCounts();
+      });
+    }
+
+    positionMenu(menu, e);
+  }
+
+  // --- Counter system ---
+  // Data model: { type: { left: Number, right: Number } }
+  function getCountersData(cardEl) {
+    try { return JSON.parse(cardEl.dataset.countersData || '{}'); } catch(e) { return {}; }
+  }
+  function setCountersData(cardEl, data) {
+    cardEl.dataset.countersData = JSON.stringify(data);
+  }
+  function renderCounterBadges(cardEl) {
+    const existing = cardEl.querySelector('.counter-badges-wrap');
+    if (existing) existing.remove();
+    const data = getCountersData(cardEl);
+    const entries = Object.entries(data);
+    if (!entries.length) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'counter-badges-wrap';
+    entries.forEach(([type, info]) => {
+      // Normalize to { left, right } — both default 0
+      const left  = (info && typeof info === 'object' && info.left  !== undefined) ? info.left  : 0;
+      const right = (info && typeof info === 'object' && info.right !== undefined) ? info.right : 0;
+
+      const badge = document.createElement('div');
+      badge.className = 'counter-badge';
+      badge.title = 'L-click +1 / R-click -1 on each half';
+
+      const leftSpan = document.createElement('span');
+      leftSpan.className = 'counter-left';
+      leftSpan.textContent = left;
+      leftSpan.addEventListener('click',       e => { e.stopPropagation(); e.preventDefault(); adjustCounter(cardEl, type, 'left',  1); });
+      leftSpan.addEventListener('contextmenu', e => { e.stopPropagation(); e.preventDefault(); adjustCounter(cardEl, type, 'left', -1); });
+
+      const sepSpan = document.createElement('span');
+      sepSpan.className = 'counter-sep';
+      sepSpan.textContent = '/';
+
+      const rightSpan = document.createElement('span');
+      rightSpan.className = 'counter-right';
+      rightSpan.textContent = right;
+      rightSpan.addEventListener('click',       e => { e.stopPropagation(); e.preventDefault(); adjustCounter(cardEl, type, 'right',  1); });
+      rightSpan.addEventListener('contextmenu', e => { e.stopPropagation(); e.preventDefault(); adjustCounter(cardEl, type, 'right', -1); });
+
+      badge.appendChild(leftSpan);
+      badge.appendChild(sepSpan);
+      badge.appendChild(rightSpan);
+      wrap.appendChild(badge);
+    });
+    cardEl.appendChild(wrap);
+  }
+
+  function adjustCounter(cardEl, type, side, delta) {
+    const data = getCountersData(cardEl);
+    if (data[type] === undefined) return;
+    // Normalize entry
+    if (typeof data[type] !== 'object' || data[type] === null) {
+      data[type] = { left: 0, right: 0 };
+    }
+    if (data[type].left  === undefined) data[type].left  = 0;
+    if (data[type].right === undefined) data[type].right = 0;
+    data[type][side] += delta;
+    setCountersData(cardEl, data);
+    renderCounterBadges(cardEl);
+    const v = data[type].left + '/' + data[type].right;
+    addLog('Counter on ' + cardEl.dataset.name + ' → ' + v);
+    setStatus(cardEl.dataset.name + ': counter = ' + v);
+    // Broadcast state in multiplayer
+    if (socket && myRoom && !isSpectator) {
+      broadcastMyState();
+    }
+  }
+
+  function addCounterType(cardEl, type) {
+    const data = getCountersData(cardEl);
+    if (!data[type]) data[type] = { left: 0, right: 0 };
+    setCountersData(cardEl, data);
+    renderCounterBadges(cardEl);
+    addLog('Added counter to ' + cardEl.dataset.name);
+    setStatus(cardEl.dataset.name + ': counter = 0/0');
+  }
+
+  function removeCounterType(cardEl, type) {
+    const data = getCountersData(cardEl);
+    if (data[type] !== undefined) {
+      addLog('Removed counter from ' + cardEl.dataset.name);
+      delete data[type];
+      setCountersData(cardEl, data);
+      renderCounterBadges(cardEl);
+      setStatus(cardEl.dataset.name + ': counter removed');
+    }
+  }
+
+  // Counter input modal
+  let counterTargetCard = null;
+  const counterInputOverlay = document.getElementById('counter-input-overlay');
+  function openCounterInput(cardEl) {
+    counterTargetCard = cardEl;
+    document.getElementById('counter-type-input').value = '';
+    counterInputOverlay.classList.add('open');
+    setTimeout(() => document.getElementById('counter-type-input').focus(), 50);
+  }
+  document.getElementById('counter-add-confirm').addEventListener('click', () => {
+    if (!counterTargetCard) return;
+    const type = document.getElementById('counter-type-input').value.trim() || '+1/+1';
+    addCounterType(counterTargetCard, type);
+    counterTargetCard = null;
+    counterInputOverlay.classList.remove('open');
+  });
+  document.getElementById('counter-add-cancel').addEventListener('click', () => {
+    counterTargetCard = null;
+    counterInputOverlay.classList.remove('open');
+  });
+  counterInputOverlay.addEventListener('click', e => {
+    if (e.target === counterInputOverlay) { counterTargetCard = null; counterInputOverlay.classList.remove('open'); }
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      hideMenu();
+      document.querySelectorAll('.modal-overlay').forEach(o => o.classList.remove('open'));
+      document.getElementById('zone-viewer-overlay').classList.remove('open');
+      drawPhaseOverlay.classList.remove('open');
+      chatPanel.classList.remove('open');
+      document.getElementById('scoop-overlay').classList.remove('open');
+      document.getElementById('counter-input-overlay').classList.remove('open');
+      lifePopup.classList.remove('open');
+    }
+  });
+
+  // --- Move card ---
+  function moveCard(cardEl, targetZoneId) {
+    const target = document.getElementById(targetZoneId);
+    if (!target) return;
+    if (targetZoneId === 'battlefield') {
+      const rect = battlefield.getBoundingClientRect();
+      cardEl.style.position = 'absolute';
+      cardEl.style.left     = Math.max(0, rect.width/2 - 37) + 'px';
+      cardEl.style.top      = Math.max(0, rect.height/2 - 50) + 'px';
+      cardEl.style.margin   = '0';
+      setCardFace(cardEl, true);
+    } else {
+      cardEl.style.position = '';
+      cardEl.style.left     = '';
+      cardEl.style.top      = '';
+      cardEl.style.margin   = '';
+      setCardFace(cardEl, targetZoneId !== 'library');
+    }
+    target.appendChild(cardEl);
+    setStatus('Moved ' + cardEl.dataset.name + ' → ' + targetZoneId);
+    addLog('Moved ' + cardEl.dataset.name + ' → ' + targetZoneId);
+    updateZoneCounts();
+    // Broadcast state in multiplayer
+    if (socket && myRoom && !isSpectator) {
+      broadcastMyState();
+    }
+  }
+  window.moveCard = moveCard;
+
+  // --- Shuffle ---
+  function shuffleDOMCards(container) {
+    const cards = Array.from(container.querySelectorAll('.card'));
+    for (let i = cards.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [cards[i], cards[j]] = [cards[j], cards[i]];
+    }
+    cards.forEach(c => container.appendChild(c));
+  }
+  function shuffleLibrary() {
+    if (!libraryDiv.querySelector('.card')) { alert('Library empty.'); return; }
+    shuffleDOMCards(libraryDiv);
+    setStatus('Library shuffled.');
+    addLog('Library shuffled');
+    updateLibraryCount();
+  }
+
+  // --- Draw ---
+  function drawCard() {
+    const first = libraryDiv.querySelector('.card');
+    if (!first) { alert('Library empty.'); return; }
+    moveCard(first, 'hand');
+    setStatus('Drawn: ' + first.dataset.name);
+    addLog('Drew: ' + first.dataset.name);
+  }
+  drawBtn.addEventListener('click', drawCard);
+
+  // --- Mulligan ---
+  mulliganBtn.addEventListener('click', () => {
+    Array.from(handDiv.querySelectorAll('.card')).forEach(card => {
+      libraryDiv.appendChild(card);
+      setCardFace(card, false);
+    });
+    shuffleDOMCards(libraryDiv);
+    const drawCount = Math.max(0, 7 - mulliganCount);
+    mulliganCount++;
+    for (let i = 0; i < drawCount; i++) {
+      const top = libraryDiv.querySelector('.card');
+      if (!top) break;
+      moveCard(top, 'hand');
+    }
+    setStatus('Mulligan #' + mulliganCount + ': drew ' + drawCount + ' cards.');
+    addLog('Mulligan #' + mulliganCount + ' — drew ' + drawCount + ' cards');
+    updateZoneCounts();
+  });
+
+  // --- Dice ---
+  const DICE = {d4:4,d6:6,d8:8,d10:10,d12:12,d20:20,d100:100};
+  rollBtn.addEventListener('click', () => {
+    const die = diceSelect.value;
+    const result = Math.floor(Math.random() * (DICE[die] || 6)) + 1;
+    diceResult.textContent = result;
+    setStatus('Rolled ' + die + ' → ' + result);
+    addLog('Rolled ' + die + ': ' + result);
+  });
+
+  // --- Turn Tracker ---
+  const PHASES = ["Untap","Upkeep","Draw","Main 1","Combat","Main 2","End"];
+  let turnNumber = 1;
+  let phaseIndex = 0;
+
+  function updateTurnDisplay() {
+    const phase = PHASES[phaseIndex];
+    document.getElementById("turn-display").textContent = "Turn " + turnNumber + " · " + phase;
+    // Show "Untap All" button only during Untap phase
+    untapAllBtn.style.display = phase === "Untap" ? '' : 'none';
+  }
+
+  function untapAll() {
+    const cards = battlefield.querySelectorAll(".card");
+    let count = 0;
+    cards.forEach(card => {
+      if (card.style.transform === "rotate(90deg)") {
+        card.style.transform = "";
+        count++;
+      }
+    });
+    if (count > 0) {
+      addLog("Untapped " + count + " card" + (count !== 1 ? "s" : "") + " (Untap step)");
+      setStatus("Untapped " + count + " card" + (count !== 1 ? "s" : "") + ".");
+    } else {
+      setStatus("No tapped cards to untap.");
+    }
+  }
+
+  // Manual untap button
+  untapAllBtn.addEventListener("click", () => untapAll());
+
+  function advanceToPhase(idx) {
+    phaseIndex = idx;
+    const phase = PHASES[phaseIndex];
+    updateTurnDisplay();
+    updateLibraryCount();
+    addLog("Phase → " + phase + " (Turn " + turnNumber + ")");
+    setStatus("Phase: " + phase);
+    // No auto-untap — player uses the Untap All button manually
+    if (phase === "Draw") showDrawPhasePrompt();
+  }
+
+  function nextPhase() {
+    const next = phaseIndex + 1;
+    if (next >= PHASES.length) { endTurn(); return; }
+    advanceToPhase(next);
+  }
+
+  function endTurn() {
+    turnNumber++;
+    phaseIndex = 0;
+    updateTurnDisplay();
+    updateLibraryCount();
+    addLog("Turn " + turnNumber + " begins — Untap phase");
+    setStatus("Turn " + turnNumber + " · Untap — click 'Untap All' to untap your permanents.");
+    // No auto-untap on End Turn
+  }
+
+  document.getElementById("end-turn-btn").addEventListener("click", endTurn);
+  updateTurnDisplay();
+
+  // Draw-phase prompt
+  const drawPhaseOverlay = document.getElementById("draw-phase-overlay");
+  function showDrawPhasePrompt() {
+    drawPhaseOverlay.classList.add("open");
+  }
+  document.getElementById("draw-phase-yes").addEventListener("click", () => {
+    drawPhaseOverlay.classList.remove("open");
+    drawCard();
+    addLog("Drew a card (Draw step)");
+  });
+  document.getElementById("draw-phase-no").addEventListener("click", () => {
+    drawPhaseOverlay.classList.remove("open");
+  });
+
+  // --- Chat ---
+  let chatUnread = 0;
+  const chatPanel      = document.getElementById("chat-panel");
+  const chatToggleBtn  = document.getElementById("chat-toggle-btn");
+  const chatInput      = document.getElementById("chat-input");
+  const chatMessagesEl = document.getElementById("chat-messages");
+  const chatEmptyEl2   = document.getElementById("chat-empty");
+  const chatUnreadBadge= document.getElementById("chat-unread-badge");
+
+  chatToggleBtn.addEventListener("click", () => {
+    const isOpen = chatPanel.classList.toggle("open");
+    if (isOpen) {
+      chatUnread = 0;
+      chatUnreadBadge.style.display = "none";
+      setTimeout(() => chatInput.focus(), 120);
+    }
+  });
+  document.getElementById("chat-close-btn").addEventListener("click", () => {
+    chatPanel.classList.remove("open");
+  });
+
+  function sendChatMessage() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+    chatInput.value = "";
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2,"0");
+    const mm = String(now.getMinutes()).padStart(2,"0");
+    if (chatEmptyEl2) chatEmptyEl2.style.display = "none";
+    const msgEl = document.createElement("div");
+    msgEl.className = "chat-msg";
+    const timeDiv = document.createElement("div");
+    timeDiv.className = "chat-msg-time";
+    timeDiv.textContent = hh + ":" + mm;
+    const textDiv = document.createElement("div");
+    textDiv.className = "chat-msg-text";
+    textDiv.textContent = text;
+    msgEl.appendChild(timeDiv);
+    msgEl.appendChild(textDiv);
+    chatMessagesEl.appendChild(msgEl);
+    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+    if (!chatPanel.classList.contains("open")) {
+      chatUnread++;
+      chatUnreadBadge.style.display = "";
+      chatUnreadBadge.textContent = chatUnread;
+    }
+  }
+
+  chatInput.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); sendChatMessage(); }
+  });
+  document.getElementById("chat-send-btn").addEventListener("click", sendChatMessage);
+
+  // --- Zone Viewer ---
+  const zoneViewerOverlay = document.getElementById('zone-viewer-overlay');
+  const zoneViewerGrid    = document.getElementById('zone-viewer-grid');
+  const zoneViewerTitle   = document.getElementById('zone-viewer-title');
+
+  document.getElementById('zone-viewer-close').addEventListener('click', () => {
+    zoneViewerOverlay.classList.remove('open');
+  });
+  zoneViewerOverlay.addEventListener('click', e => {
+    if (e.target === zoneViewerOverlay) zoneViewerOverlay.classList.remove('open');
+  });
+
+  function openZoneViewer(zoneId) {
+    const zone  = document.getElementById(zoneId);
+    const cards = Array.from(zone.querySelectorAll('.card'));
+    const names = { library: 'Library', graveyard: 'Graveyard', exile: 'Exile' };
+    zoneViewerTitle.textContent = (names[zoneId] || zoneId) + ' (' + cards.length + ' cards)';
+    zoneViewerGrid.innerHTML = '';
+    if (!cards.length) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'color:#888;font-size:0.9em;padding:20px;width:100%;text-align:center;';
+      empty.textContent = 'No cards in this zone.';
+      zoneViewerGrid.appendChild(empty);
+    } else {
+      cards.forEach(card => {
+        const zvCard = document.createElement('div');
+        zvCard.className = 'zv-card';
+        if (card.classList.contains('token')) {
+          const tokenDiv = document.createElement('div');
+          tokenDiv.style.cssText = 'width:100%;height:140px;background:#2a2a3a;display:flex;align-items:center;justify-content:center;font-size:0.72em;color:#c9a84c;text-align:center;padding:6px;box-sizing:border-box;flex-direction:column;gap:4px;';
+          const tn = document.createElement('div');
+          tn.textContent = card.dataset.name;
+          tn.style.fontWeight = 'bold';
+          tokenDiv.appendChild(tn);
+          if (card.dataset.pt) {
+            const tp = document.createElement('div');
+            tp.textContent = card.dataset.pt;
+            tokenDiv.appendChild(tp);
+          }
+          zvCard.appendChild(tokenDiv);
+        } else {
+          const img = document.createElement('img');
+          img.src = (zoneId === 'library') ? CARD_BACK : (card.dataset.front || CARD_BACK);
+          img.alt = (zoneId === 'library') ? 'Card back' : card.dataset.name;
+          zvCard.appendChild(img);
+        }
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'zv-name';
+        nameDiv.textContent = card.dataset.name;
+        zvCard.appendChild(nameDiv);
+        zvCard.addEventListener('contextmenu', e => {
+          e.preventDefault();
+          e.stopPropagation();
+          showZvContextMenu(e, card, zoneId);
+        });
+        zoneViewerGrid.appendChild(zvCard);
+      });
+    }
+    zoneViewerOverlay.classList.add('open');
+  }
+
+  function showZvContextMenu(e, card, fromZoneId) {
+    hideMenu();
+    const menu = buildMenuEl();
+    addMenuItem(menu, 'Move to Hand', () => {
+      moveCard(card, 'hand'); updateLibraryCount(); openZoneViewer(fromZoneId);
+    });
+    addMenuItem(menu, 'Move to Battlefield', () => {
+      moveCard(card, 'battlefield'); updateLibraryCount(); openZoneViewer(fromZoneId);
+    });
+    if (fromZoneId !== 'graveyard') {
+      addMenuItem(menu, 'Move to Graveyard', () => {
+        moveCard(card, 'graveyard'); updateLibraryCount(); openZoneViewer(fromZoneId);
+      });
+    }
+    if (fromZoneId !== 'exile') {
+      addMenuItem(menu, 'Move to Exile', () => {
+        moveCard(card, 'exile'); updateLibraryCount(); openZoneViewer(fromZoneId);
+      });
+    }
+    if (fromZoneId !== 'library') {
+      addMenuItem(menu, 'Shuffle into Library', () => {
+        moveCard(card, 'library');
+        shuffleDOMCards(libraryDiv);
+        updateLibraryCount();
+        openZoneViewer(fromZoneId);
+      });
+    }
+    positionMenu(menu, e);
+  }
+
+  // --- Scoop ---
+  const scoopOverlay = document.getElementById('scoop-overlay');
+  document.getElementById('scoop-btn').addEventListener('click', () => {
+    scoopOverlay.classList.add('open');
+  });
+  document.getElementById('scoop-no').addEventListener('click', () => {
+    scoopOverlay.classList.remove('open');
+  });
+  document.getElementById('scoop-yes').addEventListener('click', () => {
+    scoopOverlay.classList.remove('open');
+    const zones = [handDiv, battlefield, graveyardDiv, exileDiv];
+    let count = 0;
+    zones.forEach(zone => {
+      Array.from(zone.querySelectorAll('.card')).forEach(c => {
+        c.style.position = ''; c.style.left = ''; c.style.top = ''; c.style.margin = '';
+        c.style.transform = ''; c.classList.remove('tapped');
+        setCardFace(c, false);
+        libraryDiv.appendChild(c);
+        count++;
+      });
+    });
+    shuffleDOMCards(libraryDiv);
+    // Reset life, cmd dmg, poison
+    updateLife(40);
+    cmdDmg[0] = cmdDmg[1] = cmdDmg[2] = 0;
+    [0,1,2].forEach(p => {
+      const el = document.getElementById('cmd-val-' + p);
+      el.textContent = '0';
+      el.classList.remove('danger');
+    });
+    poison = 0;
+    document.getElementById('poison-val').textContent = '0';
+    updateZoneCounts();
+    addLog('Player scooped 😔 (' + count + ' cards returned to library, life reset to 40)');
+    setStatus('Scooped. Library shuffled, life reset to 40.');
+  });
+
+  // --- Copy Card ---
+  function copyCardToBattlefield(cardEl) {
+    const copyName = cardEl.dataset.name + ' (Copy)';
+    const frontUrl = cardEl.dataset.front || '';
+    const wrapper = document.createElement('div');
+    wrapper.className = 'card';
+    wrapper.dataset.name = copyName;
+    wrapper.dataset.front = frontUrl;
+    const img = document.createElement('img');
+    img.src = frontUrl;
+    img.alt = copyName;
+    wrapper.appendChild(img);
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'name';
+    nameDiv.textContent = copyName;
+    wrapper.appendChild(nameDiv);
+    attachCardBehavior(wrapper);
+    const rect = battlefield.getBoundingClientRect();
+    wrapper.style.position = 'absolute';
+    wrapper.style.left = Math.max(0, rect.width / 2 - 37 + Math.random() * 60 - 30) + 'px';
+    wrapper.style.top  = Math.max(0, rect.height / 2 - 52 + Math.random() * 60 - 30) + 'px';
+    wrapper.style.margin = '0';
+    battlefield.appendChild(wrapper);
+    addLog('Copied ' + cardEl.dataset.name + ' → battlefield as token');
+    setStatus('Copied ' + cardEl.dataset.name + ' to battlefield.');
+    updateZoneCounts();
+  }
+
+  window.shuffleLibrary = shuffleLibrary;
+  window.drawCard = drawCard;
+  window.openSearchLibrary = openSearchLibrary;
+</script>
+
+<!-- JOIN SCREEN -->
+<div id="join-screen">
+  <div id="join-box">
+    <h1>&#x2694;&#xfe0f; MTG Sandbox</h1>
+    <div class="subtitle">Multiplayer Board</div>
+    <div class="join-tabs">
+      <button class="join-tab active" id="tab-create" onclick="switchJoinTab('create')">Create Room</button>
+      <button class="join-tab" id="tab-join" onclick="switchJoinTab('join')">Join Room</button>
+
+    </div>
+    <div id="join-create-panel">
+      <div class="join-label">Your Name</div>
+      <input class="join-input" id="create-name" placeholder="Enter your name" maxlength="20">
+      <div class="join-label">Format</div>
+      <select id="format-select">
+        <option value="2p">2-Player (Commander / 1v1)</option>
+        <option value="4p">4-Player (Commander Pod)</option>
+      </select>
+      <div class="join-row">
+        <button class="join-btn" onclick="createRoom()">Create Room</button>
+      </div>
+    </div>
+    <div id="join-join-panel" style="display:none">
+      <div class="join-label">Your Name</div>
+      <input class="join-input" id="join-name" placeholder="Enter your name" maxlength="20">
+      <div class="join-label">Room Code</div>
+      <input class="join-input" id="join-code" placeholder="4-digit code" maxlength="4" style="letter-spacing:0.15em;font-family:monospace;font-size:1.1em">
+      <div class="join-row">
+        <button class="join-btn" onclick="joinRoom(false)">Join as Player</button>
+        <button class="join-btn secondary" onclick="joinRoom(true)">Spectate</button>
+      </div>
+    </div></div>
+    <div id="join-error"></div>
+  </div>
+</div>
+
+<!-- LOBBY SCREEN -->
+<div id="lobby-screen">
+  <div id="lobby-box">
+    <h2>Waiting for Players</h2>
+    <div style="color:#888;font-size:0.82em;margin-bottom:6px">Share this room code:</div>
+    <div id="lobby-code-display"></div>
+    <div id="lobby-players"></div>
+    <div id="lobby-waiting">Waiting for more players to join...</div>
+    <p id="lobby-spectator-note" style="display:none">You are spectating. The game will start when host begins.</p>
+    <button id="lobby-start-btn" onclick="startGame()">Start Game &#x25b6;</button>
+  </div>
+</div>
+
+<!-- OPPONENT PANEL (2-player) -->
+<div id="opponent-panel">
+  <!-- populated by JS -->
+</div>
+
+<!-- 4-PLAYER QUADRANT VIEW -->
+<div id="quad-panel">
+  <!-- populated by JS -->
+</div>
+
+<!-- PRIVATE LOG PANEL -->
+<div id="private-log-panel">
+  <div id="private-log-header">
+    <span>&#x1f512; Private Log</span>
+    <button id="private-log-close">&#x2715;</button>
+  </div>
+  <div id="private-log-msgs"></div>
+</div>
+
+</body>
+</html>
