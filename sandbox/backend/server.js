@@ -1,4 +1,3 @@
-// Built by Gemma — Gemma 4
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -6,20 +5,18 @@ const crypto = require('crypto');
 const path = require('path');
 
 const app = express();
-const cors = require('cors');
-app.use(cors({ origin: 'http://100.99.57.88:8002' }));
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: 'http://100.99.57.88:8002', methods: ['GET','POST'] }
+  cors: { origin: '*', methods: ['GET','POST'] }
 });
-
-const rooms = {};
 
 // Serve the frontend
 app.use(express.static(path.join(__dirname, '..')));
 
+const rooms = {};
+
 function generateCode() {
-  return crypto.randomBytes(2).toString("hex").toUpperCase().slice(0,4);
+  return String(Math.floor(1000 + Math.random() * 9000));
 }
 
 io.on('connection', socket => {
@@ -100,7 +97,8 @@ io.on('connection', socket => {
   socket.on('gameAction', (data) => {
     const code = socket.data.room;
     const room = rooms[code];
-    if (!room) return;
+    if (!room) { console.log('gameAction: no room for', socket.id, 'room=', code); return; }
+    console.log('gameAction from', socket.data.name, 'room', code, ':', data.type, data.msg);
     const entry = {
       ...data,
       playerName: socket.data.name,
@@ -167,6 +165,65 @@ io.on('connection', socket => {
     });
   });
 
+
+  // ── Card reveal request ──
+  socket.on('revealRequest', data => {
+    const code = socket.data.room;
+    if (!code || !rooms[code]) return;
+    // Forward request to target seat
+    const target = rooms[code].players.find(p => p.seat === data.targetSeat);
+    if (target) {
+      io.to(target.id).emit('revealRequest', {
+        fromName: socket.data.name,
+        fromSeat: socket.data.seat,
+        cardIndex: data.cardIndex
+      });
+    }
+  });
+
+  socket.on('revealResponse', data => {
+    const code = socket.data.room;
+    if (!code || !rooms[code]) return;
+    // Forward response back to requester
+    const requester = rooms[code].players.find(p => p.seat === data.toSeat);
+    if (requester) {
+      io.to(requester.id).emit('revealResponse', {
+        accepted: data.accepted,
+        cardImgUrl: data.cardImgUrl,
+        cardName: data.cardName,
+        fromName: socket.data.name
+      });
+    }
+  });
+
+
+  // ── Library reveal request ──
+  socket.on('libraryRevealRequest', data => {
+    const code = socket.data.room;
+    if (!code || !rooms[code]) return;
+    const target = rooms[code].players.find(p => p.seat === data.targetSeat);
+    if (target) {
+      io.to(target.id).emit('libraryRevealRequest', {
+        fromName: socket.data.name,
+        fromSeat: socket.data.seat,
+        count: data.count
+      });
+    }
+  });
+
+  socket.on('libraryRevealResponse', data => {
+    const code = socket.data.room;
+    if (!code || !rooms[code]) return;
+    const requester = rooms[code].players.find(p => p.seat === data.toSeat);
+    if (requester) {
+      io.to(requester.id).emit('libraryRevealResponse', {
+        accepted: data.accepted,
+        cards: data.cards,
+        fromName: socket.data.name
+      });
+    }
+  });
+
   socket.on('disconnect', () => {
     const code = socket.data.room;
     if (!code || !rooms[code]) return;
@@ -185,5 +242,5 @@ io.on('connection', socket => {
   });
 });
 
-const PORT = process.env.PORT || 3002;
-server.listen(PORT, '0.0.0.0', () => console.log('MTG Multiplayer Server running on port ' + PORT + ' (all interfaces)'));
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, () => console.log('MTG Multiplayer Server running on port ' + PORT));
