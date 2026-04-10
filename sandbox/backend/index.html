@@ -115,7 +115,7 @@
 
   .zone.battlefield {
     background: radial-gradient(ellipse at center, #0d1a0d 0%, #141820 100%);
-    position: absolute; top: 0; left: 28px; right: 28px; bottom: 0; overflow: hidden;
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden;
     border: none; border-radius: 0; padding: 8px; box-shadow: none;
   }
   .zone.hand {
@@ -914,8 +914,8 @@
     border-radius: 6px; overflow: hidden; cursor: pointer;
     z-index: 60; pointer-events: all;
   }
-  .opp-gy-zone { bottom: 8px; }
-  .opp-ex-zone { bottom: 156px; }
+  .opp-gy-zone { bottom: 0; }
+  .opp-ex-zone { bottom: 144px; }
   .opp-zone-label {
     font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
     color: #888; padding: 4px 6px; text-align: center;
@@ -1013,8 +1013,8 @@
 
   /* Opponent commander zone */
   .opp-commander-zone {
-    position: absolute; bottom: 8px; left: 8px;
-    width: 80px; height: 112px;
+    position: absolute; bottom: 140px; left: 0;
+    width: 100px; height: 140px;
     border: 2px solid rgba(201,168,76,0.7);
     border-radius: 6px; overflow: hidden;
     background: rgba(10,10,16,0.88);
@@ -1098,16 +1098,15 @@
 
   /* Opponent library zone */
   .opp-library-zone {
-    position: absolute; bottom: 130px; left: 8px;
-    width: 80px; height: 112px;
-    background: linear-gradient(135deg, #1a472a, #0f2a1a);
-    border: 1px solid rgba(157,202,157,0.4);
+    position: absolute; bottom: 0; left: 0;
+    width: 100px; height: 140px;
+    background: #1a472a;
+    border: 1px solid rgba(201,168,76,0.5);
     border-radius: 6px; overflow: hidden; cursor: context-menu;
     z-index: 60; pointer-events: all;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     box-shadow: 0 4px 12px rgba(0,0,0,0.5);
   }
-  .opp-library-zone:hover { border-color: rgba(157,202,157,0.8); }
   .opp-library-count {
     font-size: 28px; font-weight: 800; color: #9dca9d;
     line-height: 1;
@@ -1552,6 +1551,17 @@
     socket.on('connect', () => {
       console.log('Socket connected:', socket.id);
     });
+    socket.on('disconnect', (reason) => {
+      console.warn('Socket disconnected:', reason);
+    });
+    socket.on('reconnect', () => {
+      console.log('Socket reconnected');
+      // Re-announce presence to room if we were in one
+      if (myRoom && myName) {
+        // Rejoin room
+        socket.emit('joinRoom', { playerName: myName, code: myRoom, spectator: isSpectator });
+      }
+    });
     socket.on('connect_error', (err) => {
       document.getElementById('join-error').textContent = 'Cannot connect to server: ' + err.message;
       socket = null;
@@ -1970,7 +1980,7 @@
       const oppGyLabel = document.createElement('div');
       oppGyLabel.className = 'opp-zone-label';
       oppGyLabel.id = 'opp-gy-label-' + opp.seat;
-      oppGyLabel.textContent = 'GY: ' + (state.graveyardCount || 0);
+      oppGyLabel.textContent = 'GRAVEYARD ' + (state.graveyardCount || 0);
       oppGy.appendChild(oppGyLabel);
       if (state.graveyardTop) {
         const gyImg = document.createElement('div');
@@ -1992,7 +2002,7 @@
       oppEx.className = 'opp-ex-zone';
       const oppExLabel2 = document.createElement('div');
       oppExLabel2.className = 'opp-zone-label';
-      oppExLabel2.textContent = 'Exile: ' + (state.exileCount || 0);
+      oppExLabel2.textContent = 'EXILE ' + (state.exileCount || 0);
       oppEx.appendChild(oppExLabel2);
       if (state.exileCards && state.exileCards.length) {
         const exTop = state.exileCards[state.exileCards.length - 1];

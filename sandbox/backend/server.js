@@ -11,7 +11,7 @@ const io = new Server(server, {
 });
 
 // Serve the frontend
-app.use(express.static(path.join(__dirname, '..')));
+app.use(express.static(path.join(__dirname, '.')));
 
 const rooms = {};
 
