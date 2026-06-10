@@ -79,6 +79,9 @@
     bottom: 0;
   }
   body.mp-active #footer-bar { display: flex !important; }
+  body.mp-active #card-preview {
+    bottom: 80px;
+  }
 
   .zone {
     border: 1px solid #2a2a3a;
@@ -120,7 +123,7 @@
     border: none; border-radius: 0; padding: 8px; box-shadow: none;
   }
   .zone.hand {
-    position: fixed; bottom: -75px; left: 50%; transform: translateX(-50%);
+    position: fixed; bottom: -30px; left: 50%; transform: translateX(-50%);
     height: 130px; max-width: 90vw;
     background: transparent; border: none; border-radius: 0;
     overflow: visible;
@@ -130,7 +133,7 @@
     transition: bottom 0.25s ease;
   }
   .zone.hand:hover {
-    bottom: -10px;
+    bottom: 0px;
   }
   .zone.hand .zone-label { display: none; }
   .zone.hand .card {
@@ -181,7 +184,7 @@
   }
 
   .card {
-    width: 75px; height: auto;
+    width: clamp(55px, 6vw, 85px); height: auto;
     border: 1px solid #3a3a4a;
     border-radius: 6px;
     position: relative; margin: 3px;
@@ -217,9 +220,9 @@
   .card.token .token-name { font-size: 0.6em; color: #e0e0e0; font-weight: bold; text-align: center; padding: 2px 4px; }
   .card.token .token-pt  { font-size: 0.85em; color: #c9a84c; font-weight: bold; margin-top: 4px; }
 
-  /* Counter badges — interactive column, top-left of card */
+  /* Counter badges — interactive pills, bottom-right of card */
   .counter-badges-wrap {
-    position: absolute; top: 2px; left: 2px;
+    position: absolute; bottom: 2px; right: 2px;
     display: flex; flex-direction: column; gap: 2px;
     z-index: 7;
   }
@@ -242,6 +245,12 @@
   .counter-sep {
     padding: 2px 1px; cursor: default; opacity: 0.7; pointer-events: none;
   }
+  /* Counter type colors */
+  .counter-badge[data-counter-type="loyalty"] { background: rgba(40,80,180,0.92); }
+  .counter-badge[data-counter-type="charge"] { background: rgba(180,130,40,0.92); }
+  .counter-badge[data-counter-type="+1/+1"] { background: rgba(0,160,80,0.92); }
+  .counter-badge[data-counter-type="-1/-1"] { background: rgba(160,0,0,0.92); }
+  .counter-badge[data-counter-type="keyword"] { background: rgba(140,60,180,0.92); }
 
   #footer-bar {
     display: none !important;
@@ -1572,7 +1581,7 @@
     // Connect to same host (works behind proxies/load balancers)
     // Override with window.__MTG_SERVER_URL__ if needed for dev
     const serverUrl = window.__MTG_SERVER_URL__ || undefined;
-    socket = io(serverUrl);
+    socket = io(serverUrl, { transports: ['websocket', 'polling'] });
 
     socket.on('connect', () => {
       console.log('Socket connected:', socket.id);
@@ -1652,17 +1661,6 @@
     mpPlayers = data.players || [{ name: myName, seat: 0 }];
     document.getElementById('join-screen').style.display = 'none';
     startGame(false); // skip lobby
-    setTimeout(() => {
-      // Add permanent room code badge to status bar
-      const existBadge = document.getElementById('status-room-badge');
-      if (!existBadge) {
-        const badge = document.createElement('span');
-        badge.id = 'status-room-badge';
-        badge.style.cssText = 'margin-left:8px;padding:1px 8px;background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.3);border-radius:8px;color:#c9a84c;font-family:monospace;font-weight:700;letter-spacing:0.1em;font-size:13px;';
-        badge.textContent = myRoom;
-        document.getElementById('status-bar')?.appendChild(badge);
-      }
-    }, 500);
   }
 
   function onJoinedRoom(data) {
@@ -3235,7 +3233,8 @@
 
       const badge = document.createElement('div');
       badge.className = 'counter-badge';
-      badge.title = 'L-click +1 / R-click -1 on each half';
+      badge.dataset.counterType = type;
+      badge.title = type + ': L-click +1 / R-click -1 on each half';
 
       const leftSpan = document.createElement('span');
       leftSpan.className = 'counter-left';
