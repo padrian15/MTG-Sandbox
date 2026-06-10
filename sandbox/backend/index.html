@@ -78,6 +78,7 @@
     top: 50vh;
     bottom: 0;
   }
+  body.mp-active #footer-bar { display: flex !important; }
 
   .zone {
     border: 1px solid #2a2a3a;
@@ -193,6 +194,7 @@
   .card img { width: 100%; height: auto; display: block; pointer-events: none; border-radius: 5px; }
   .card:hover { transform: scale(1.05); z-index: 10; }
   .card.tapped { opacity: 0.85; }
+  .card.face-down .name { display: none; }
   .card .name {
     position: absolute; bottom: 2px; left: 2px; right: 2px;
     background: rgba(0,0,0,0.75); color: #e0e0e0;
@@ -759,17 +761,17 @@
     background: radial-gradient(ellipse at center, #0a140a 0%, #0f0f13 100%);
     border-bottom: 2px solid rgba(201,168,76,0.15);
     display: none; z-index: 50;
-    flex-direction: row; gap: 0;
+    flex-direction: column; gap: 0;
     pointer-events: none;
   }
+  #opponent-panel > * { pointer-events: all; }
   #opponent-panel.show { display: flex; }
   .opp-zone {
     position: absolute; top: 8px; left: 8px;
     display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
     font-size: 12px; background: transparent; border: none;
-    padding: 0; z-index: 10; pointer-events: none;
+    padding: 0; z-index: 10;
   }
-  .opp-zone:last-child { border-right: none; }
   .opp-name {
     font-weight: 700; color: #c9a84c; font-size: 13px;
     white-space: nowrap; text-shadow: 0 1px 4px rgba(0,0,0,0.9);
@@ -777,19 +779,34 @@
   .opp-life { font-size: 22px; font-weight: 800; color: #e0e0e0; text-shadow: 0 1px 4px rgba(0,0,0,0.9); line-height: 1; }
   .opp-counts { color: rgba(180,180,180,0.8); font-size: 10px; display: flex; gap: 6px; flex-wrap: wrap; text-shadow: 0 1px 3px rgba(0,0,0,0.9); }
   .opp-bf {
-    flex: 1; overflow: hidden;
+    flex: 1; overflow-y: auto; overflow-x: hidden;
     background: transparent;
     border: none; position: relative;
     min-height: 0;
+    padding: 90px 100px 120px 8px;
+    display: flex; flex-wrap: wrap;
+    align-content: flex-start; gap: 4px;
   }
   .opp-card-mini {
-    width: 75px; height: 104px; border-radius: 6px;
+    width: 60px; height: 84px; border-radius: 4px;
     background: #1e3a1e; border: 1px solid #2a4a2a;
-    display: inline-block; flex-shrink: 0;
+    flex-shrink: 0;
     overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    position: relative; cursor: pointer;
   }
-  .opp-card-mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .opp-card-mini img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
   .opp-card-mini.tapped { transform: rotate(90deg); opacity: 0.85; }
+  .opp-card-mini.face-down {
+    background: #1a472a;
+    border-color: rgba(201,168,76,0.4);
+  }
+  .opp-card-mini.face-down::after {
+    content: 'MTG';
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%) rotate(-90deg);
+    font-size: 10px; font-weight: 900; color: rgba(201,168,76,0.6);
+    letter-spacing: 0.05em;
+  }
+  .opp-card-mini:hover { border-color: #c9a84c; }
   .opp-hand-cards {
     display: flex; gap: 1px; flex-wrap: wrap; align-items: center;
   }
@@ -829,9 +846,11 @@
     width: 40px; height: 56px; border-radius: 4px;
     background: #1e3a1e; border: 1px solid #2a4a2a;
     overflow: hidden; display: inline-block; flex-shrink: 0;
+    position: relative;
   }
   .quad-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .quad-card.tapped { transform: rotate(15deg); opacity: 0.8; }
+  .quad-card.face-down { background: #1a472a; border-color: rgba(201,168,76,0.4); }
   .quad-footer {
     padding: 4px 8px; background: #1a1a24; border-top: 1px solid #2a2a3a;
     display: flex; gap: 6px; align-items: center; font-size: 10px; color: #888;
@@ -909,13 +928,13 @@
 
   /* Opponent graveyard/exile overlays */
   .opp-gy-zone, .opp-ex-zone {
-    position: absolute; right: 8px; width: 100px; height: 140px;
+    position: absolute; right: 8px; width: 80px; height: 110px;
     background: rgba(10,10,16,0.88); border: 1px solid #2a2a3a;
     border-radius: 6px; overflow: hidden; cursor: pointer;
     z-index: 60; pointer-events: all;
   }
-  .opp-gy-zone { bottom: 0; }
-  .opp-ex-zone { bottom: 144px; }
+  .opp-gy-zone { bottom: 8px; }
+  .opp-ex-zone { bottom: 124px; }
   .opp-zone-label {
     font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
     color: #888; padding: 4px 6px; text-align: center;
@@ -1013,24 +1032,24 @@
 
   /* Opponent commander zone */
   .opp-commander-zone {
-    position: absolute; bottom: 140px; left: 0;
-    width: 100px; height: 140px;
+    position: absolute; bottom: 124px; left: 0;
+    width: 80px; height: 110px;
     border: 2px solid rgba(201,168,76,0.7);
     border-radius: 6px; overflow: hidden;
     background: rgba(10,10,16,0.88);
     box-shadow: 0 0 12px rgba(201,168,76,0.2);
     z-index: 60; pointer-events: all; cursor: pointer;
   }
-  .opp-commander-zone img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .opp-commander-zone img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
   .opp-commander-label {
     position: absolute; bottom: 0; left: 0; right: 0;
     background: rgba(0,0,0,0.75); color: #c9a84c;
     font-size: 8px; text-align: center; padding: 2px;
-    text-transform: uppercase; letter-spacing: 0.08em;
+    text-transform: uppercase; letter-spacing: 0.08em; pointer-events: none;
   }
   .opp-commander-empty {
     display: flex; align-items: center; justify-content: center;
-    height: 100%; color: #555; font-size: 10px; text-align: center; padding: 4px;
+    height: 100%; color: #555; font-size: 10px; text-align: center; padding: 4px; pointer-events: none;
   }
 
 
@@ -1038,28 +1057,25 @@
 
   /* Opponent floating hand - peeks from top of opponent zone */
   #opp-hand-float {
-    position: fixed; top: calc(28px - 70px);
-    left: 50%; transform: translateX(-50%);
-    display: none; flex-wrap: nowrap; align-items: flex-start;
-    z-index: 201; pointer-events: none;
+    position: fixed; top: 28px; right: 290px;
+    display: none; flex-wrap: wrap; align-items: flex-start;
+    z-index: 201;
     transition: top 0.3s ease;
+    max-width: 300px;
   }
   body.mp-active #opp-hand-float { display: flex; }
-  body.mp-active #opp-hand-float:hover {
-    top: calc(28px + 4px);
-  }
   .opp-hand-float-card {
-    width: 60px; height: 84px;
-    border-radius: 6px; overflow: hidden;
-    flex-shrink: 0; margin: 0 -6px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+    width: 48px; height: 67px;
+    border-radius: 4px; overflow: hidden;
+    flex-shrink: 0; margin: 2px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
     border: 1px solid #3a3a4a;
-    transform-origin: top center;
     transition: transform 0.15s ease;
+    cursor: context-menu;
   }
-  .opp-hand-float-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .opp-hand-float-card img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
   .opp-hand-float-card:hover {
-    transform: translateY(15px) scale(1.1);
+    transform: translateY(8px) scale(1.3);
     z-index: 210;
   }
 
@@ -1098,8 +1114,8 @@
 
   /* Opponent library zone */
   .opp-library-zone {
-    position: absolute; bottom: 0; left: 0;
-    width: 100px; height: 140px;
+    position: absolute; bottom: 8px; left: 0;
+    width: 80px; height: 110px;
     background: #1a472a;
     border: 1px solid rgba(201,168,76,0.5);
     border-radius: 6px; overflow: hidden; cursor: context-menu;
@@ -1545,8 +1561,10 @@
 
   function connectSocket() {
     if (socket) return;
-    // Try to connect to backend on same host port 3001
-    socket = io();
+    // Connect to same host (works behind proxies/load balancers)
+    // Override with window.__MTG_SERVER_URL__ if needed for dev
+    const serverUrl = window.__MTG_SERVER_URL__ || undefined;
+    socket = io(serverUrl);
 
     socket.on('connect', () => {
       console.log('Socket connected:', socket.id);
@@ -1821,207 +1839,209 @@
   function renderOpponents() {
     if (myFormat === '4p') return; // handled by quad
     const oppPanel = document.getElementById('opponent-panel');
+    if (!oppPanel) return;
     oppPanel.innerHTML = '';
     const opponents = mpPlayers.filter(p => p.seat !== mySeat);
     if (opponents.length === 0) {
       oppPanel.innerHTML = '<div style="padding:8px 16px;color:#555;font-size:11px;align-self:center">Waiting for opponents...</div>';
       return;
     }
-    opponents.forEach(opp => {
-      const state = opponentStates[opp.seat] || {};
-      const div = document.createElement('div');
-      div.className = 'opp-zone';
-      div.dataset.seat = opp.seat;
+    const opp = opponents[0]; // 2-player: just one opponent
+    const state = opponentStates[opp.seat] || {};
 
-      // Info section
-      const info = document.createElement('div');
-      info.innerHTML = '<div class="opp-name">' + escHtml(opp.name) + '</div>' +
-        '<div class="opp-life">♥ ' + (state.life !== undefined ? state.life : '—') + '</div>';
-      div.appendChild(info);
-      // Commander damage indicator (only show if > 0)
-      if (state.cmdDmgReceived && state.cmdDmgReceived > 0) {
-        const cmdEl = document.createElement('div');
-        cmdEl.style.cssText = 'font-size:10px;color:#c9a84c;text-shadow:0 1px 3px rgba(0,0,0,0.9);';
-        cmdEl.textContent = '⚔ CMD: ' + state.cmdDmgReceived;
-        div.appendChild(cmdEl);
-      }
+    // Player info overlay (top-left)
+    const info = document.createElement('div');
+    info.className = 'opp-zone';
+    info.innerHTML = '<div class="opp-name">' + escHtml(opp.name) + '</div>' +
+      '<div class="opp-life">\u2665 ' + (state.life !== undefined ? state.life : '\u2014') + '</div>' +
+      '<div class="opp-counts">' +
+        '<span>\ud83d\udcda ' + (state.libraryCount !== undefined ? state.libraryCount : '?') + '</span>' +
+        '<span>\u270b ' + (state.handCount || 0) + '</span>' +
+        '<span>\ud83e\udeb6 ' + (state.graveyardCount || 0) + '</span>' +
+      '</div>';
+    if (state.cmdDmgReceived && state.cmdDmgReceived > 0) {
+      const cmdEl = document.createElement('div');
+      cmdEl.style.cssText = 'font-size:10px;color:#c9a84c;text-shadow:0 1px 3px rgba(0,0,0,0.9);';
+      cmdEl.textContent = '\u2694 CMD: ' + state.cmdDmgReceived;
+      info.appendChild(cmdEl);
+    }
+    oppPanel.appendChild(info);
 
-      // Hand backs
-      // hand shown as floating cards at top
+    // Battlefield cards - rendered as a flowing grid inside opp-bf
+    const bf = document.createElement('div');
+    bf.className = 'opp-bf';
+    bf.dataset.seat = opp.seat;
 
-      oppPanel.appendChild(div);
-
-      // Battlefield section
-      const bf = document.createElement('div');
-      bf.className = 'opp-bf';
-      bf.dataset.seat = opp.seat;
-      if (state.battlefield && state.battlefield.length) {
-        const bfEl = document.getElementById('layout');
-        const bfW = bfEl ? bfEl.offsetWidth : window.innerWidth;
-        const bfH = bfEl ? bfEl.offsetHeight : (window.innerHeight - 28);
-        state.battlefield.forEach(card => {
-          const mini = document.createElement('div');
-          mini.className = 'opp-card-mini' + (card.tapped ? ' tapped' : '');
-          mini.style.position = 'absolute';
-          // Mirror: flip both axes so cards appear across the table
-          const mirrorX = bfW - (card.x || 0) - 75;
-          const mirrorY = bfH - (card.y || 0) - 104;
-          mini.style.left = Math.max(0, mirrorX) + 'px';
-          mini.style.top = Math.max(0, mirrorY) + 'px';
-          if (card.imgUrl) {
-            const img = document.createElement('img');
-            img.src = card.imgUrl;
-            mini.appendChild(img);
-            // Hover preview
-            mini.style.pointerEvents = 'all';
-            mini.addEventListener('mouseenter', () => {
-              const preview = document.getElementById('card-preview');
-              const previewImg = document.getElementById('preview-img');
-              if (preview && previewImg) {
-                previewImg.src = card.imgUrl;
-                preview.style.display = 'block';
-              }
-            });
-            mini.addEventListener('mouseleave', () => {
-              const preview = document.getElementById('card-preview');
-              if (preview) preview.style.display = 'none';
-            });
-          }
-          // Render counter badges
-          if (card.counters && Object.keys(card.counters).length) {
-            const badgeWrap = document.createElement('div');
-            badgeWrap.className = 'opp-counter-badge';
-            Object.entries(card.counters).forEach(([type, info]) => {
-              const val = info.value !== undefined ? info.value : info;
-              if (val && val !== 0) {
-                const pip = document.createElement('span');
-                pip.className = 'opp-counter-pip' + (type.includes('+1') ? ' p1p1' : type === 'loyalty' ? ' loyalty' : type === 'charge' ? ' charge' : '');
-                pip.textContent = type + ':' + val;
-                badgeWrap.appendChild(pip);
-              }
-            });
-            if (badgeWrap.children.length) mini.appendChild(badgeWrap);
-          }
-          bf.appendChild(mini);
-        });
-      }
-      oppPanel.appendChild(bf);
-
-      // Opponent library zone
-      const oppLib = document.createElement('div');
-      oppLib.className = 'opp-library-zone';
-      const oppLibCount = document.createElement('div');
-      oppLibCount.className = 'opp-library-count';
-      oppLibCount.textContent = state.libraryCount !== undefined ? state.libraryCount : '?';
-      const oppLibLabel = document.createElement('div');
-      oppLibLabel.className = 'opp-library-label';
-      oppLibLabel.textContent = 'Library';
-      oppLib.appendChild(oppLibCount);
-      oppLib.appendChild(oppLibLabel);
-      oppLib.addEventListener('contextmenu', e => {
-        e.preventDefault();
-        document.querySelectorAll('.bf-ctx-menu').forEach(m => m.remove());
-        const menu = document.createElement('div');
-        menu.style.cssText = 'position:fixed;left:' + e.clientX + 'px;top:' + e.clientY + 'px;background:#1a1a24;border:1px solid #3a3a4a;border-radius:8px;z-index:9999;min-width:200px;box-shadow:0 4px 16px rgba(0,0,0,0.8);overflow:hidden;';
-        const counts = [1, 3, 5, 7];
-        counts.forEach((n, i) => {
-          const item = document.createElement('div');
-          item.textContent = 'Request top ' + n + ' card' + (n>1?'s':'');
-          item.style.cssText = 'padding:9px 16px;cursor:pointer;font-size:12px;color:#e0e0e0;' + (i>0?'border-top:1px solid #2a2a3a;':'');
-          item.addEventListener('mouseenter', () => item.style.background='#2a2a3a');
-          item.addEventListener('mouseleave', () => item.style.background='');
-          item.addEventListener('click', () => {
-            const oppSeat = mpPlayers.find(p => p.seat !== mySeat)?.seat;
-            if (oppSeat !== undefined && socket) {
-              socket.emit('libraryRevealRequest', { targetSeat: oppSeat, count: n });
-              setStatus('Library reveal request sent for top ' + n + '...');
+    if (state.battlefield && state.battlefield.length) {
+      state.battlefield.forEach(card => {
+        const mini = document.createElement('div');
+        mini.className = 'opp-card-mini' + (card.tapped ? ' tapped' : '') + (card.faceDown ? ' face-down' : '');
+        if (card.faceDown) {
+          // Priority 3: Face-down cards show card back to opponents
+          mini.style.background = '#1a472a';
+          mini.style.borderColor = 'rgba(201,168,76,0.4)';
+          mini.title = 'Face-down card';
+        } else if (card.imgUrl) {
+          const img = document.createElement('img');
+          img.src = card.imgUrl;
+          img.alt = card.name || '';
+          mini.appendChild(img);
+          mini.title = card.name || '';
+          // Hover preview
+          mini.addEventListener('mouseenter', () => {
+            const preview = document.getElementById('card-preview');
+            const previewImg = document.getElementById('preview-img');
+            if (preview && previewImg) {
+              previewImg.src = card.imgUrl;
+              previewImg.style.display = 'block';
+              document.getElementById('preview-token-box').style.display = 'none';
+              preview.style.display = 'block';
             }
-            menu.remove();
           });
-          menu.appendChild(item);
-        });
-        document.body.appendChild(menu);
-        setTimeout(() => document.addEventListener('click', () => menu.remove(), {once:true}), 10);
+          mini.addEventListener('mouseleave', () => {
+            const preview = document.getElementById('card-preview');
+            if (preview) preview.style.display = 'none';
+          });
+        }
+        // Render counter badges on opponent cards
+        if (card.counters && Object.keys(card.counters).length) {
+          const badgeWrap = document.createElement('div');
+          badgeWrap.className = 'opp-counter-badge';
+          Object.entries(card.counters).forEach(([type, info]) => {
+            const val = info.value !== undefined ? info.value : (typeof info === 'object' ? (info.left || 0) + (info.right ? '/' + info.right : '') : info);
+            if (val && val !== 0 && val !== '0/0') {
+              const pip = document.createElement('span');
+              pip.className = 'opp-counter-pip' + (type.includes('+1') ? ' p1p1' : type === 'loyalty' ? ' loyalty' : type === 'charge' ? ' charge' : '');
+              pip.textContent = type + ':' + val;
+              badgeWrap.appendChild(pip);
+            }
+          });
+          if (badgeWrap.children.length) mini.appendChild(badgeWrap);
+        }
+        bf.appendChild(mini);
       });
-      bf.appendChild(oppLib);
+    }
 
-      // Opponent commander zone
-      const oppCmd = document.createElement('div');
-      oppCmd.className = 'opp-commander-zone';
-      if (state.commanderCard && state.commanderCard.imgUrl) {
-        const cmdImg = document.createElement('img');
-        cmdImg.src = state.commanderCard.imgUrl;
-        cmdImg.title = state.commanderCard.name || 'Commander';
-        oppCmd.appendChild(cmdImg);
-        const cmdLabel = document.createElement('div');
-        cmdLabel.className = 'opp-commander-label';
-        cmdLabel.textContent = 'Commander';
-        oppCmd.appendChild(cmdLabel);
-        // Click to preview
-        oppCmd.addEventListener('click', () => {
-          const preview = document.getElementById('card-preview');
-          const previewImg = document.getElementById('preview-img');
-          if (preview && previewImg) {
-            previewImg.src = state.commanderCard.imgUrl;
-            preview.style.display = preview.style.display === 'block' ? 'none' : 'block';
+    // Opponent library zone (bottom-left of opponent panel)
+    const oppLib = document.createElement('div');
+    oppLib.className = 'opp-library-zone';
+    const oppLibCount = document.createElement('div');
+    oppLibCount.className = 'opp-library-count';
+    oppLibCount.textContent = state.libraryCount !== undefined ? state.libraryCount : '?';
+    const oppLibLabel = document.createElement('div');
+    oppLibLabel.className = 'opp-library-label';
+    oppLibLabel.textContent = 'Library';
+    oppLib.appendChild(oppLibCount);
+    oppLib.appendChild(oppLibLabel);
+    oppLib.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      document.querySelectorAll('.bf-ctx-menu').forEach(m => m.remove());
+      const menu = document.createElement('div');
+      menu.style.cssText = 'position:fixed;left:' + e.clientX + 'px;top:' + e.clientY + 'px;background:#1a1a24;border:1px solid #3a3a4a;border-radius:8px;z-index:9999;min-width:200px;box-shadow:0 4px 16px rgba(0,0,0,0.8);overflow:hidden;';
+      [1, 3, 5, 7].forEach((n, i) => {
+        const item = document.createElement('div');
+        item.textContent = 'Request top ' + n + ' card' + (n>1?'s':'');
+        item.style.cssText = 'padding:9px 16px;cursor:pointer;font-size:12px;color:#e0e0e0;' + (i>0?'border-top:1px solid #2a2a3a;':'');
+        item.addEventListener('mouseenter', () => item.style.background='#2a2a3a');
+        item.addEventListener('mouseleave', () => item.style.background='');
+        item.addEventListener('click', () => {
+          const oppSeat = mpPlayers.find(p => p.seat !== mySeat)?.seat;
+          if (oppSeat !== undefined && socket) {
+            socket.emit('libraryRevealRequest', { targetSeat: oppSeat, count: n });
+            setStatus('Library reveal request sent for top ' + n + '...');
           }
+          menu.remove();
         });
-      } else {
-        const empty = document.createElement('div');
-        empty.className = 'opp-commander-empty';
-        empty.textContent = 'No\nCommander';
-        oppCmd.appendChild(empty);
-      }
-      bf.appendChild(oppCmd);
-
-      // Opponent graveyard overlay
-      const oppGy = document.createElement('div');
-      oppGy.className = 'opp-gy-zone';
-      const oppGyLabel = document.createElement('div');
-      oppGyLabel.className = 'opp-zone-label';
-      oppGyLabel.id = 'opp-gy-label-' + opp.seat;
-      oppGyLabel.textContent = 'GRAVEYARD ' + (state.graveyardCount || 0);
-      oppGy.appendChild(oppGyLabel);
-      if (state.graveyardTop) {
-        const gyImg = document.createElement('div');
-        gyImg.className = 'opp-card-mini';
-        const gi = document.createElement('img');
-        gi.src = state.graveyardTop;
-        gyImg.appendChild(gi);
-        oppGy.appendChild(gyImg);
-      }
-      oppGy.addEventListener('click', () => {
-        if (state.graveyardCards && state.graveyardCards.length) {
-          openOppZoneViewer('Opponent Graveyard', state.graveyardCards);
-        }
+        menu.appendChild(item);
       });
-      bf.appendChild(oppGy);
-
-      // Opponent exile overlay
-      const oppEx = document.createElement('div');
-      oppEx.className = 'opp-ex-zone';
-      const oppExLabel2 = document.createElement('div');
-      oppExLabel2.className = 'opp-zone-label';
-      oppExLabel2.textContent = 'EXILE ' + (state.exileCount || 0);
-      oppEx.appendChild(oppExLabel2);
-      if (state.exileCards && state.exileCards.length) {
-        const exTop = state.exileCards[state.exileCards.length - 1];
-        if (exTop && exTop.imgUrl) {
-          const exImg = document.createElement('div');
-          exImg.className = 'opp-card-mini';
-          const ei = document.createElement('img');
-          ei.src = exTop.imgUrl;
-          exImg.appendChild(ei);
-          oppEx.appendChild(exImg);
-        }
-      }
-      oppEx.addEventListener('click', () => {
-        if (state.exileCards && state.exileCards.length) {
-          openOppZoneViewer('Opponent Exile', state.exileCards);
-        }
-      });
-      bf.appendChild(oppEx);
+      document.body.appendChild(menu);
+      setTimeout(() => document.addEventListener('click', () => menu.remove(), {once:true}), 10);
     });
+    oppPanel.appendChild(oppLib);
+
+    // Opponent commander zone (bottom-left, above library)
+    const oppCmd = document.createElement('div');
+    oppCmd.className = 'opp-commander-zone';
+    if (state.commanderCard && state.commanderCard.imgUrl) {
+      const cmdImg = document.createElement('img');
+      cmdImg.src = state.commanderCard.imgUrl;
+      cmdImg.title = state.commanderCard.name || 'Commander';
+      oppCmd.appendChild(cmdImg);
+      const cmdLabel = document.createElement('div');
+      cmdLabel.className = 'opp-commander-label';
+      cmdLabel.textContent = 'Commander';
+      oppCmd.appendChild(cmdLabel);
+      oppCmd.addEventListener('click', () => {
+        const preview = document.getElementById('card-preview');
+        const previewImg = document.getElementById('preview-img');
+        if (preview && previewImg) {
+          previewImg.src = state.commanderCard.imgUrl;
+          previewImg.style.display = 'block';
+          document.getElementById('preview-token-box').style.display = 'none';
+          preview.style.display = preview.style.display === 'block' ? 'none' : 'block';
+        }
+      });
+    } else {
+      const empty = document.createElement('div');
+      empty.className = 'opp-commander-empty';
+      empty.textContent = 'No\nCommander';
+      oppCmd.appendChild(empty);
+    }
+    oppPanel.appendChild(oppCmd);
+
+    // Battlefield area (behind the overlay zones)
+    oppPanel.appendChild(bf);
+
+    // Opponent graveyard zone (bottom-right)
+    const oppGy = document.createElement('div');
+    oppGy.className = 'opp-gy-zone';
+    const oppGyLabel = document.createElement('div');
+    oppGyLabel.className = 'opp-zone-label';
+    oppGyLabel.id = 'opp-gy-label-' + opp.seat;
+    oppGyLabel.textContent = 'GRAVEYARD ' + (state.graveyardCount || 0);
+    oppGy.appendChild(oppGyLabel);
+    if (state.graveyardTop) {
+      const gyImg = document.createElement('div');
+      gyImg.className = 'opp-card-mini';
+      const gi = document.createElement('img');
+      gi.src = state.graveyardTop;
+      gyImg.appendChild(gi);
+      oppGy.appendChild(gyImg);
+    }
+    oppGy.addEventListener('click', () => {
+      if (state.graveyardCards && state.graveyardCards.length) {
+        openOppZoneViewer('Opponent Graveyard', state.graveyardCards);
+      }
+    });
+    oppPanel.appendChild(oppGy);
+
+    // Opponent exile zone (above graveyard)
+    const oppEx = document.createElement('div');
+    oppEx.className = 'opp-ex-zone';
+    const oppExLabel2 = document.createElement('div');
+    oppExLabel2.className = 'opp-zone-label';
+    oppExLabel2.textContent = 'EXILE ' + (state.exileCount || 0);
+    oppEx.appendChild(oppExLabel2);
+    if (state.exileCards && state.exileCards.length) {
+      const exTop = state.exileCards[state.exileCards.length - 1];
+      if (exTop && exTop.imgUrl) {
+        const exImg = document.createElement('div');
+        exImg.className = 'opp-card-mini';
+        const ei = document.createElement('img');
+        ei.src = exTop.imgUrl;
+        exImg.appendChild(ei);
+        oppEx.appendChild(exImg);
+      }
+    }
+    oppEx.addEventListener('click', () => {
+      if (state.exileCards && state.exileCards.length) {
+        openOppZoneViewer('Opponent Exile', state.exileCards);
+      }
+    });
+    oppPanel.appendChild(oppEx);
+
+    // Render opponent hand count as floating card backs
+    renderOppHandFloat(state.handCount || 0);
   }
 
   // ── 4-Player Quadrant Layout ──
@@ -2033,6 +2053,7 @@
 
   function renderQuad() {
     const quad = document.getElementById('quad-panel');
+    if (!quad) return;
     quad.innerHTML = '';
     const maxPlayers = 4;
     for (let s = 0; s < maxPlayers; s++) {
@@ -2048,6 +2069,12 @@
       header.innerHTML =
         '<span class="quad-seat-name">' + (p ? escHtml(p.name) : 'Seat ' + (s+1)) + (isMe ? ' (you)' : '') + '</span>' +
         '<span class="quad-seat-life">' + (state.life !== undefined ? '\u2764\ufe0f ' + state.life : '\u2014') + '</span>';
+      if (state.cmdDmgReceived && state.cmdDmgReceived > 0) {
+        const cmdSpan = document.createElement('span');
+        cmdSpan.style.cssText = 'font-size:10px;color:#c9a84c;margin-left:4px;';
+        cmdSpan.textContent = '\u2694 CMD:' + state.cmdDmgReceived;
+        header.appendChild(cmdSpan);
+      }
       seat.appendChild(header);
 
       const bf = document.createElement('div');
@@ -2055,11 +2082,30 @@
       if (state.battlefield && state.battlefield.length) {
         state.battlefield.forEach(card => {
           const c = document.createElement('div');
-          c.className = 'quad-card' + (card.tapped ? ' tapped' : '');
-          if (card.imgUrl) {
+          c.className = 'quad-card' + (card.tapped ? ' tapped' : '') + (card.faceDown ? ' face-down' : '');
+          if (card.faceDown) {
+            c.style.background = '#1a472a';
+            c.title = 'Face-down card';
+          } else if (card.imgUrl) {
             const img = document.createElement('img');
             img.src = card.imgUrl;
             c.appendChild(img);
+            c.title = card.name || '';
+          }
+          // Show counters on quad cards
+          if (card.counters && Object.keys(card.counters).length) {
+            const counterWrap = document.createElement('div');
+            counterWrap.className = 'opp-counter-badge';
+            Object.entries(card.counters).forEach(([type, info]) => {
+              const val = info.value !== undefined ? info.value : (typeof info === 'object' ? (info.left || 0) + (info.right ? '/' + info.right : '') : info);
+              if (val && val !== 0 && val !== '0/0') {
+                const pip = document.createElement('span');
+                pip.className = 'opp-counter-pip' + (type.includes('+1') ? ' p1p1' : type === 'loyalty' ? ' loyalty' : type === 'charge' ? ' charge' : '');
+                pip.textContent = type + ':' + val;
+                counterWrap.appendChild(pip);
+              }
+            });
+            if (counterWrap.children.length) c.appendChild(counterWrap);
           }
           bf.appendChild(c);
         });
@@ -2092,14 +2138,19 @@
     const subZoneIds = ['library','commander','graveyard','exile','hand'];
     const bfCards = Array.from(_bf ? _bf.querySelectorAll('.card') : [])
       .filter(c => !subZoneIds.some(id => document.getElementById(id)?.contains(c)))
-      .map(c => ({
-        name: c.dataset.name,
-        imgUrl: c.dataset.front,
-        tapped: c.classList.contains('tapped'),
-        x: parseFloat(c.style.left) || 0,
-        y: parseFloat(c.style.top) || 0,
-        counters: (() => { try { return JSON.parse(c.dataset.countersData || '{}'); } catch(e) { return {}; } })()
-      }));
+      .map(c => {
+        const isFaceDown = c.classList.contains('face-down');
+        const cardData = {
+          name: isFaceDown ? 'Face-down card' : c.dataset.name,
+          imgUrl: isFaceDown ? 'https://upload.wikimedia.org/wikipedia/en/a/aa/Magic_the_gathering-card_back.jpg' : c.dataset.front,
+          faceDown: isFaceDown,
+          tapped: c.classList.contains('tapped'),
+          x: parseFloat(c.style.left) || 0,
+          y: parseFloat(c.style.top) || 0,
+          counters: (() => { try { return JSON.parse(c.dataset.countersData || '{}'); } catch(e) { return {}; } })()
+        };
+        return cardData;
+      });
     const gyCards = Array.from(_gy ? _gy.querySelectorAll('.card') : []);
     const exCards = Array.from(_ex ? _ex.querySelectorAll('.card') : []);
     const cmdCard = _cmd ? _cmd.querySelector('.card') : null;
@@ -2113,6 +2164,7 @@
       commanderCard: cmdCard ? { name: cmdCard.dataset.name, imgUrl: cmdCard.dataset.front } : null,
       exileCount: exCards.length,
       exileCards: exCards.map(c => ({ name: c.dataset.name, imgUrl: c.dataset.front })),
+      cmdDmgReceived: (typeof cmdDmg !== 'undefined' && cmdDmg) ? cmdDmg.reduce((a,b) => a+b, 0) : 0,
       battlefield: bfCards
     };
   }
@@ -2449,7 +2501,13 @@
     if (cardEl.classList.contains('token')) return;
     const img = cardEl.querySelector('img');
     if (!img) return;
-    img.src = faceUp ? (cardEl.dataset.front || img.src) : CARD_BACK;
+    if (faceUp) {
+      img.src = cardEl.dataset.front || img.src;
+      cardEl.classList.remove('face-down');
+    } else {
+      img.src = CARD_BACK;
+      cardEl.classList.add('face-down');
+    }
   }
 
   // --- Drag and drop ---
@@ -3007,10 +3065,14 @@
     }
 
     addMenuItem(menu, 'Move to Battlefield', () => moveCard(cardEl, 'battlefield'));
+    addMenuItem(menu, 'Move to Battlefield (face-down)', () => { moveCard(cardEl, 'battlefield'); setCardFace(cardEl, false); broadcastMyState(); });
     addMenuItem(menu, 'Move to Hand',        () => moveCard(cardEl, 'hand'));
     addMenuItem(menu, 'Send to Graveyard',   () => moveCard(cardEl, 'graveyard'));
     addMenuItem(menu, 'Send to Exile',       () => moveCard(cardEl, 'exile'));
     addMenuItem(menu, 'Move to Commander',   () => moveCard(cardEl, 'commander'));
+
+    addMenuItem(menu, 'Flip Face-Down', () => { setCardFace(cardEl, false); addLog('Flipped face-down: ' + cardEl.dataset.name); broadcastMyState(); });
+    addMenuItem(menu, 'Flip Face-Up', () => { setCardFace(cardEl, true); addLog('Flipped face-up: ' + cardEl.dataset.name); broadcastMyState(); });
 
     addMenuSep(menu);
     addMenuItem(menu, 'Add Counter', () => openCounterInput(cardEl));

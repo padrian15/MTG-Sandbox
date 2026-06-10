@@ -3,8 +3,8 @@
  * Built by Gemma — Gemma 4
  */
 
-// Use the Tailscale IP for the backend connection
-const SERVER_URL = 'http://100.99.57.88:3002';
+// Use environment variable or fallback to same host
+const SERVER_URL = window.__MTG_SERVER_URL__ || '';
 const socket = io(SERVER_URL);
 
 async function joinRoom() {
