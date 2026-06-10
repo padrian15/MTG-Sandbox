@@ -851,6 +851,12 @@
   .quad-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .quad-card.tapped { transform: rotate(15deg); opacity: 0.8; }
   .quad-card.face-down { background: #1a472a; border-color: rgba(201,168,76,0.4); }
+  .quad-card.face-down::after {
+    content: 'MTG';
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    font-size: 8px; font-weight: 900; color: rgba(201,168,76,0.6);
+    letter-spacing: 0.05em;
+  }
   .quad-footer {
     padding: 4px 8px; background: #1a1a24; border-top: 1px solid #2a2a3a;
     display: flex; gap: 6px; align-items: center; font-size: 10px; color: #888;
@@ -1546,6 +1552,8 @@
   let isHost = false;
   let mpPlayers = [];  // { name, seat }
   let opponentStates = {}; // seat -> public state
+  let _lastOppRenderHash = ''; // fingerprint to skip redundant re-renders
+  let _oppRenderRAF = null;   // requestAnimationFrame debounce handle
   let gameStarted = false;
 
   // ── Join screen tab switching ──
@@ -1671,7 +1679,7 @@
     document.getElementById('join-screen').style.display = 'none';
     startGame(true); // skip lobby
     // Re-render after state arrives
-    setTimeout(renderOpponents, 500);
+    setTimeout(() => renderOpponents(true), 500);
   }
 
   function onJoinError(data) {
@@ -1692,7 +1700,7 @@
     delete opponentStates[data.seat];
     updateLobbyUI();
     if (typeof addLog === 'function') addLog('\u2190 ' + data.name + ' left the room');
-    renderOpponents();
+    renderOpponents(true);
   }
 
   function onGameAction(data) {
@@ -1731,9 +1739,13 @@
   function onStateUpdate(data) {
     if (data.seat === mySeat) return;
     opponentStates[data.seat] = data;
-    renderOpponents();
+    // Guard: don't render if opponent panel hasn't been created yet
+    const oppPanel = document.getElementById('opponent-panel');
+    const quadPanel = document.getElementById('quad-panel');
+    if (!oppPanel && !quadPanel) return;
+    if (oppPanel || quadPanel) renderOpponents();
     if (window._oppHandRenderHook) window._oppHandRenderHook(data);
-    if (myFormat === '4p') renderQuad();
+    if (myFormat === '4p' && quadPanel) renderQuad();
   }
 
   function onGameLogHistory(entries) {
@@ -1833,13 +1845,45 @@
     const layoutEl = document.getElementById('layout');
     if (layoutEl) layoutEl.style.top = '50vh';
     // hand zone is CSS-controlled floating
-    renderOpponents();
+    renderOpponents(true);
   }
 
-  function renderOpponents() {
+  function _oppStateFingerprint() {
+    // Quick hash of opponent state to detect changes
+    const opponents = mpPlayers.filter(p => p.seat !== mySeat);
+    if (!opponents.length) return '';
+    const opp = opponents[0];
+    const state = opponentStates[opp.seat];
+    if (!state) return '';
+    // Include key fields that affect rendering
+    const bfHash = (state.battlefield || []).map(c => (c.name||'') + (c.tapped?'t':'') + (c.faceDown?'f':'') + (c.x||0) + ',' + (c.y||0) + JSON.stringify(c.counters||{})).join('|');
+    return [opp.seat, state.life, state.libraryCount, state.handCount, state.graveyardCount, state.exileCount, state.cmdDmgReceived, state.graveyardTop, bfHash, state.commanderCard?.name, state.commanderCard?.imgUrl, (state.exileCards||[]).length, (state.graveyardCards||[]).length].join(',');
+  }
+
+  function renderOpponents(force) {
     if (myFormat === '4p') return; // handled by quad
     const oppPanel = document.getElementById('opponent-panel');
     if (!oppPanel) return;
+    // Debounce via RAF and skip if state hasn't changed
+    const hash = _oppStateFingerprint();
+    if (!force && hash === _lastOppRenderHash) return; // no change, skip re-render
+    if (!force && _oppRenderRAF) return; // already scheduled
+    if (force) {
+      // Immediate render for initial setup or player join/leave
+      _lastOppRenderHash = hash;
+      _doRenderOpponents(oppPanel);
+      return;
+    }
+    _oppRenderRAF = requestAnimationFrame(() => {
+      _oppRenderRAF = null;
+      const currentHash = _oppStateFingerprint();
+      if (currentHash === _lastOppRenderHash) return; // double-check after RAF
+      _lastOppRenderHash = currentHash;
+      _doRenderOpponents(oppPanel);
+    });
+  }
+
+  function _doRenderOpponents(oppPanel) {
     oppPanel.innerHTML = '';
     const opponents = mpPlayers.filter(p => p.seat !== mySeat);
     if (opponents.length === 0) {
@@ -2048,12 +2092,52 @@
   function initQuadLayout() {
     const quad = document.getElementById('quad-panel');
     quad.classList.add('show');
-    renderQuad();
+    renderQuad(true);
   }
 
-  function renderQuad() {
+  let _lastQuadRenderHash = '';
+  let _quadRenderRAF = null;
+
+  function _quadStateFingerprint() {
+    let parts = [];
+    for (let s = 0; s < 4; s++) {
+      const p = mpPlayers.find(x => x.seat === s);
+      const state = (s === mySeat) ? null : (opponentStates[s] || null);
+      const name = p ? p.name : '';
+      if (s === mySeat) {
+        parts.push(s + ':me');
+      } else if (state) {
+        const bfHash = (state.battlefield || []).map(c => (c.name||'')+(c.tapped?'t':'')+(c.faceDown?'f':'')+JSON.stringify(c.counters||{})).join('|');
+        parts.push(s + ':' + name + ':' + state.life + ':' + state.libraryCount + ':' + state.handCount + ':' + state.graveyardCount + ':' + bfHash);
+      } else {
+        parts.push(s + ':empty');
+      }
+    }
+    return parts.join(';');
+  }
+
+  function renderQuad(force) {
     const quad = document.getElementById('quad-panel');
     if (!quad) return;
+    const hash = _quadStateFingerprint();
+    if (!force && hash === _lastQuadRenderHash) return;
+    if (!force && _quadRenderRAF) return;
+    if (force) {
+      _lastQuadRenderHash = hash;
+    } else {
+      _quadRenderRAF = requestAnimationFrame(() => {
+        _quadRenderRAF = null;
+        const currentHash = _quadStateFingerprint();
+        if (currentHash === _lastQuadRenderHash) return;
+        _lastQuadRenderHash = currentHash;
+        _doRenderQuad(quad);
+      });
+      return;
+    }
+    _doRenderQuad(quad);
+  }
+
+  function _doRenderQuad(quad) {
     quad.innerHTML = '';
     const maxPlayers = 4;
     for (let s = 0; s < maxPlayers; s++) {
