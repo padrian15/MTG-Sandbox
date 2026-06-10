@@ -80,7 +80,8 @@
   }
   body.mp-active #footer-bar { display: flex !important; }
   body.mp-active #card-preview {
-    bottom: 80px;
+    bottom: 160px;
+    right: 90px;
   }
 
   .zone {
@@ -111,7 +112,7 @@
     border: 1px solid #c9a84c;
     box-shadow: inset 0 0 20px rgba(0,0,0,0.4), 0 0 16px rgba(201,168,76,0.15);
     position: absolute; bottom: 140px; left: 0;
-    width: 100px; height: 140px; overflow: hidden;
+    width: clamp(80px, 10vw, 110px); height: clamp(110px, 16vh, 160px); overflow: hidden;
     background: rgba(10,10,16,0.88); z-index: 20;
   }
   .zone.commander .zone-label { color: #c9a84c; pointer-events: none; }
@@ -156,7 +157,7 @@
   }
   .zone.library {
     position: absolute; bottom: 0; left: 0;
-    width: 100px; height: 140px; overflow: hidden;
+    width: clamp(80px, 10vw, 110px); height: clamp(110px, 16vh, 160px); overflow: hidden;
     background: #1a472a; z-index: 20; cursor: pointer;
     border: 1px solid rgba(201,168,76,0.5); border-radius: 6px;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -170,7 +171,7 @@
   .zone.graveyard, .zone.exile {
     background: rgba(10,10,16,0.88);
     position: absolute; overflow: hidden; cursor: pointer;
-    width: 100px; height: 140px; z-index: 20;
+    width: clamp(80px, 10vw, 110px); height: clamp(110px, 16vh, 160px); z-index: 20;
     border: 1px solid #2a2a3a; border-radius: 6px;
   }
   .zone.graveyard { bottom: 0; right: 8px; }
@@ -223,27 +224,35 @@
   /* Counter badges — interactive pills, bottom-right of card */
   .counter-badges-wrap {
     position: absolute; bottom: 2px; right: 2px;
-    display: flex; flex-direction: column; gap: 2px;
+    display: flex; flex-direction: column; gap: 3px;
     z-index: 7;
   }
   .counter-badge {
-    border-radius: 8px; padding: 0;
-    font-size: 0.6em; font-weight: bold; color: #fff;
+    border-radius: 10px; padding: 0;
+    font-size: 0.72em; font-weight: 700; color: #fff;
     white-space: nowrap; cursor: default;
     user-select: none;
-    border: 1px solid rgba(255,255,255,0.15);
-    box-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,255,255,0.2);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.7);
     display: inline-flex; align-items: center; overflow: hidden;
     background: rgba(0,160,80,0.92);
+    line-height: 1.2;
   }
   .counter-left, .counter-right {
-    padding: 2px 5px; cursor: pointer;
+    padding: 3px 6px; cursor: pointer;
   }
   .counter-left:hover, .counter-right:hover {
     background: rgba(255,255,255,0.2);
   }
   .counter-sep {
-    padding: 2px 1px; cursor: default; opacity: 0.7; pointer-events: none;
+    padding: 3px 1px; cursor: default; opacity: 0.7; pointer-events: none;
+  }
+  .counter-badge.single-num .counter-left {
+    padding: 3px 8px;
+  }
+  .counter-badge.single-num .counter-sep,
+  .counter-badge.single-num .counter-right {
+    display: none;
   }
   /* Counter type colors */
   .counter-badge[data-counter-type="loyalty"] { background: rgba(40,80,180,0.92); }
@@ -251,6 +260,7 @@
   .counter-badge[data-counter-type="+1/+1"] { background: rgba(0,160,80,0.92); }
   .counter-badge[data-counter-type="-1/-1"] { background: rgba(160,0,0,0.92); }
   .counter-badge[data-counter-type="keyword"] { background: rgba(140,60,180,0.92); }
+  .counter-badge[data-counter-type="stun"] { background: rgba(100,180,220,0.92); }
 
   #footer-bar {
     display: none !important;
@@ -1079,6 +1089,12 @@
     max-width: 300px;
   }
   body.mp-active #opp-hand-float { display: flex; }
+  body.mp-active .zone.hand {
+    bottom: calc(72px - 30px);
+  }
+  body.mp-active .zone.hand:hover {
+    bottom: 72px;
+  }
   .opp-hand-float-card {
     width: 48px; height: 67px;
     border-radius: 4px; overflow: hidden;
@@ -2246,7 +2262,11 @@
       commanderCard: cmdCard ? { name: cmdCard.dataset.name, imgUrl: cmdCard.dataset.front } : null,
       exileCount: exCards.length,
       exileCards: exCards.map(c => ({ name: c.dataset.name, imgUrl: c.dataset.front })),
-      cmdDmgReceived: (typeof cmdDmg !== 'undefined' && cmdDmg) ? cmdDmg.reduce((a,b) => a+b, 0) : 0,
+      cmdDmgReceived: (function() {
+        var old = (typeof cmdDmg !== 'undefined' && cmdDmg) ? cmdDmg.reduce(function(a,b){return a+b;}, 0) : 0;
+        var hud = (typeof hudCmdDmgTotal === 'function') ? hudCmdDmgTotal() : 0;
+        return Math.max(old, hud);
+      })(),
       battlefield: bfCards
     };
   }
@@ -3157,7 +3177,12 @@
     addMenuItem(menu, 'Flip Face-Up', () => { setCardFace(cardEl, true); addLog('Flipped face-up: ' + cardEl.dataset.name); broadcastMyState(); });
 
     addMenuSep(menu);
-    addMenuItem(menu, 'Add Counter', () => openCounterInput(cardEl));
+    addMenuItem(menu, 'Add Counter…', () => openCounterInput(cardEl));
+    addMenuItem(menu, '+1/+1 Counter', () => { addCounterType(cardEl, '+1/+1'); broadcastMyState(); });
+    addMenuItem(menu, '-1/-1 Counter', () => { addCounterType(cardEl, '-1/-1'); broadcastMyState(); });
+    addMenuItem(menu, 'Loyalty Counter', () => { addCounterType(cardEl, 'loyalty'); broadcastMyState(); });
+    addMenuItem(menu, 'Charge Counter', () => { addCounterType(cardEl, 'charge'); broadcastMyState(); });
+    addMenuItem(menu, 'Stun Counter', () => { addCounterType(cardEl, 'stun'); broadcastMyState(); });
 
     // Remove options for existing counters
     const countersData = getCountersData(cardEl);
@@ -3224,6 +3249,8 @@
     const data = getCountersData(cardEl);
     const entries = Object.entries(data);
     if (!entries.length) return;
+    // Types that are single-value (just a number, not X/Y)
+    const singleTypes = ['loyalty', 'charge', 'stun'];
     const wrap = document.createElement('div');
     wrap.className = 'counter-badges-wrap';
     entries.forEach(([type, info]) => {
@@ -3231,14 +3258,15 @@
       const left  = (info && typeof info === 'object' && info.left  !== undefined) ? info.left  : 0;
       const right = (info && typeof info === 'object' && info.right !== undefined) ? info.right : 0;
 
+      const isSingle = singleTypes.includes(type.toLowerCase());
       const badge = document.createElement('div');
-      badge.className = 'counter-badge';
+      badge.className = 'counter-badge' + (isSingle ? ' single-num' : '');
       badge.dataset.counterType = type;
-      badge.title = type + ': L-click +1 / R-click -1 on each half';
+      badge.title = type + ': L-click +1 / R-click -1' + (isSingle ? '' : ' on each half');
 
       const leftSpan = document.createElement('span');
       leftSpan.className = 'counter-left';
-      leftSpan.textContent = left;
+      leftSpan.textContent = isSingle ? type.charAt(0).toUpperCase() + ':' + left : left;
       leftSpan.addEventListener('click',       e => { e.stopPropagation(); e.preventDefault(); adjustCounter(cardEl, type, 'left',  1); });
       leftSpan.addEventListener('contextmenu', e => { e.stopPropagation(); e.preventDefault(); adjustCounter(cardEl, type, 'left', -1); });
 
@@ -4063,7 +4091,9 @@
         el.textContent = '⚔ CMD DMG';
         el.classList.remove('has-damage');
       }
+      return total;
     }
+    window.hudCmdDmgTotal = function() { return Object.values(hudCmdDmg).reduce(function(s,v){return s+v;}, 0); };
 
     function buildCmdRows() {
       var rows = document.getElementById('cmd-dmg-rows');
@@ -4085,12 +4115,12 @@
         nm.textContent = opp.name || ('P' + (opp.seat+1));
         var minus = document.createElement('button');
         minus.className = 'cmd-dmg-btn'; minus.textContent = '-';
-        minus.onclick = function() { hudCmdDmg[key] = Math.max(0,(hudCmdDmg[key]||0)-1); buildCmdRows(); updateCmdTotal(); };
+        minus.onclick = function() { hudCmdDmg[key] = Math.max(0,(hudCmdDmg[key]||0)-1); buildCmdRows(); updateCmdTotal(); if(typeof broadcastMyState==='function') broadcastMyState(); };
         var vl = document.createElement('div');
         vl.className = 'cmd-dmg-val'; vl.id = 'cmdval-'+key; vl.textContent = hudCmdDmg[key] || 0;
         var plus = document.createElement('button');
         plus.className = 'cmd-dmg-btn'; plus.textContent = '+';
-        plus.onclick = function() { hudCmdDmg[key] = (hudCmdDmg[key]||0)+1; buildCmdRows(); updateCmdTotal(); };
+        plus.onclick = function() { hudCmdDmg[key] = (hudCmdDmg[key]||0)+1; buildCmdRows(); updateCmdTotal(); if(typeof broadcastMyState==='function') broadcastMyState(); };
         row.appendChild(nm); row.appendChild(minus); row.appendChild(vl); row.appendChild(plus);
         rows.appendChild(row);
       });
@@ -4113,6 +4143,9 @@
         if (panel && !panel.contains(e.target) && e.target.id !== 'player-hud-cmd') {
           panel.classList.remove('open');
         }
+      });
+      document.getElementById('cmd-dmg-panel-close')?.addEventListener('click', function() {
+        document.getElementById('player-cmd-panel')?.classList.remove('open');
       });
     });
 
@@ -4247,16 +4280,6 @@
 </div>
 
 
-<!-- Commander damage panel -->
-<div id="player-cmd-panel">
-  <div style="font-size:10px;color:#c9a84c;font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.1em;">Commander Damage</div>
-  <div id="cmd-rows"></div>
-  <div style="margin-top:6px;text-align:right;">
-    <span style="font-size:9px;color:#555;cursor:pointer;" id="cmd-panel-close">close</span>
-  </div>
-</div>
-
-
 <!-- Player HUD -->
 <div id="player-hud">
   <div id="player-hud-name">You</div>
@@ -4274,6 +4297,9 @@
 <div id="player-cmd-panel">
   <div id="player-cmd-panel-title">Commander Damage</div>
   <div id="cmd-dmg-rows"></div>
+  <div style="margin-top:6px;text-align:right;">
+    <span style="font-size:9px;color:#555;cursor:pointer;" id="cmd-dmg-panel-close">close</span>
+  </div>
 </div>
 
 </body>
